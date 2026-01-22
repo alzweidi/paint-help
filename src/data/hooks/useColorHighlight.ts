@@ -4,8 +4,16 @@ import tinycolor from "tinycolor2"
 const MAX_DIMENSION = 480
 const DEFAULT_TOLERANCE = 40
 
+type RegionBounds = {
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
 type HighlightOptions = {
     tolerance?: number
+    region?: RegionBounds
 }
 
 const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -68,24 +76,50 @@ export const useColorHighlight = () => {
                 const pixels = imageData.data
 
                 const target = tinycolor(targetColor).toRgb()
+                const region = options?.region
 
-                for (let i = 0; i < pixels.length; i += 4) {
-                    const r = pixels[i]
-                    const g = pixels[i + 1]
-                    const b = pixels[i + 2]
+                let regionX = 0
+                let regionY = 0
+                let regionW = targetWidth
+                let regionH = targetHeight
 
-                    const distance = colorDistance(r, g, b, target.r, target.g, target.b)
+                if (region) {
+                    regionX = Math.floor((region.x / 100) * targetWidth)
+                    regionY = Math.floor((region.y / 100) * targetHeight)
+                    regionW = Math.floor((region.width / 100) * targetWidth)
+                    regionH = Math.floor((region.height / 100) * targetHeight)
+                }
 
-                    if (distance <= tolerance) {
-                        pixels[i] = 0
-                        pixels[i + 1] = 255
-                        pixels[i + 2] = 0
-                        pixels[i + 3] = 200
-                    } else {
-                        pixels[i] = 0
-                        pixels[i + 1] = 0
-                        pixels[i + 2] = 0
-                        pixels[i + 3] = 0
+                for (let y = 0; y < targetHeight; y++) {
+                    for (let x = 0; x < targetWidth; x++) {
+                        const i = (y * targetWidth + x) * 4
+                        const r = pixels[i]
+                        const g = pixels[i + 1]
+                        const b = pixels[i + 2]
+
+                        const isInRegion = x >= regionX && x < regionX + regionW &&
+                                           y >= regionY && y < regionY + regionH
+
+                        if (isInRegion) {
+                            const distance = colorDistance(r, g, b, target.r, target.g, target.b)
+
+                            if (distance <= tolerance) {
+                                pixels[i] = 0
+                                pixels[i + 1] = 255
+                                pixels[i + 2] = 0
+                                pixels[i + 3] = 200
+                            } else {
+                                pixels[i] = 0
+                                pixels[i + 1] = 0
+                                pixels[i + 2] = 0
+                                pixels[i + 3] = 0
+                            }
+                        } else {
+                            pixels[i] = 0
+                            pixels[i + 1] = 0
+                            pixels[i + 2] = 0
+                            pixels[i + 3] = 0
+                        }
                     }
                 }
 

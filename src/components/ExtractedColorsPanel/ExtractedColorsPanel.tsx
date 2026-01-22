@@ -12,10 +12,10 @@ type ExtractedColorsPanelProps = {
     referenceImageUrl: string | null
     palette: ColorPart[]
     suggestions: Array<RecipeSuggestion | null>
-    onApplySuggestion?: (suggestion: RecipeSuggestion) => void
     selectedRegion: Region | null
     onRegionChange: (region: Region | null) => void
     isRegionMode: boolean
+    onRemovePaint?: (index: number) => void
 }
 
 const LOW_MATCH_THRESHOLD = 60
@@ -36,15 +36,21 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
     referenceImageUrl,
     palette,
     suggestions,
-    onApplySuggestion,
     selectedRegion,
     onRegionChange,
-    isRegionMode
+    isRegionMode,
+    onRemovePaint
 }) => {
     const basePaints = palette.filter((paint) => !paint.recipe)
     const [ highlightMaskUrl, setHighlightMaskUrl ] = useState<string | null>(null)
     const [ isHighlightActive, setIsHighlightActive ] = useState(false)
     const { generateHighlightMask } = useColorHighlight()
+
+    useEffect(() => {
+        if (isRegionMode && colors.length === 0) {
+            setIsHighlightActive(false)
+        }
+    }, [ isRegionMode, colors.length ])
 
     useEffect(() => {
         if (!referenceImageUrl || selectedIndex === null || !colors[ selectedIndex ]) {
@@ -60,7 +66,9 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
         let cancelled = false
         const targetColor = colors[ selectedIndex ].rgbString
 
-        generateHighlightMask(referenceImageUrl, targetColor).then((maskUrl) => {
+        generateHighlightMask(referenceImageUrl, targetColor, {
+            region: selectedRegion ?? undefined
+        }).then((maskUrl) => {
             if (!cancelled) {
                 setHighlightMaskUrl(maskUrl)
             }
@@ -69,7 +77,7 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
         return () => {
             cancelled = true
         }
-    }, [ referenceImageUrl, selectedIndex, colors, isHighlightActive, generateHighlightMask ])
+    }, [ referenceImageUrl, selectedIndex, colors, isHighlightActive, generateHighlightMask, selectedRegion ])
 
     const handleSwatchClick = (index: number) => {
         if (index === selectedIndex && isHighlightActive) {
@@ -91,7 +99,7 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                     <div className={ styles.referenceImage }>
                         { referenceImageUrl ? (
                             <>
-                                { isRegionMode ? (
+                                { isRegionMode && !isHighlightActive ? (
                                     <RegionSelector
                                         imageUrl={ referenceImageUrl }
                                         selectedRegion={ selectedRegion }
@@ -113,7 +121,7 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                         ) : (
                             <div className={ styles.placeholder }>No reference image yet.</div>
                         ) }
-                        { !isRegionMode && isHighlightActive && selectedIndex !== null && colors[ selectedIndex ] && (
+                        { isHighlightActive && selectedIndex !== null && colors[ selectedIndex ] && (
                             <div className={ styles.highlightLegend }>
                                 <span
                                     className={ styles.legendSwatch }
@@ -129,7 +137,7 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                 </button>
                             </div>
                         ) }
-                        { isRegionMode && selectedRegion && (
+                        { isRegionMode && selectedRegion && !isHighlightActive && (
                             <div className={ styles.regionInfo }>
                                 <span>Extracting colors from selected region</span>
                             </div>
@@ -151,11 +159,21 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                         } }
                                     >
                                         { paint.label }
+                                        { onRemovePaint && (
+                                            <button
+                                                type="button"
+                                                className={ styles.removePaint }
+                                                onClick={ () => onRemovePaint(index) }
+                                                aria-label={ `Remove ${ paint.label }` }
+                                            >
+                                                ×
+                                            </button>
+                                        ) }
                                     </span>
                                 )) }
                             </div>
                         ) : (
-                            <div className={ styles.placeholder }>No paints yet.</div>
+                            <div className={ styles.placeholder }>No paints yet. Use search below to add paints.</div>
                         ) }
                     </div>
                 </div>
@@ -223,15 +241,6 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                                         <div className={ styles.ingredients }>
                                                             { formatIngredientList(suggestion.ingredients, palette) }
                                                         </div>
-                                                        { onApplySuggestion && (
-                                                            <button
-                                                                type="button"
-                                                                className={ styles.applyButton }
-                                                                onClick={ () => onApplySuggestion(suggestion) }
-                                                            >
-                                                                Apply to mixer
-                                                            </button>
-                                                        ) }
                                                     </div>
                                                 ) : (
                                                     <div className={ styles.placeholder }>No suggestion yet.</div>

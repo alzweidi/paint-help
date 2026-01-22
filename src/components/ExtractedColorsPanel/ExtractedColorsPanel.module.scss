@@ -108,6 +108,25 @@
     border-radius: 999px;
     padding: 0.2rem 0.6rem;
     font-size: 0.8rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.removePaint {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.removePaint:hover {
+    opacity: 1;
 }
 
 .colorsColumn {

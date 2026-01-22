@@ -55,8 +55,7 @@ describe('<ExtractedColorsPanel />', () => {
             }
         ]
 
-        const handleApply = jest.fn()
-        const { getAllByTestId, getByRole, getByText } = render(
+        const { getAllByTestId, getByText } = render(
             <ExtractedColorsPanel
                 colors={ [ { rgbString: 'rgb(1, 2, 3)', coveragePct: 88.8 } ] }
                 selectedIndex={ 0 }
@@ -64,7 +63,6 @@ describe('<ExtractedColorsPanel />', () => {
                 referenceImageUrl={ 'blob:reference' }
                 palette={ palette }
                 suggestions={ suggestions }
-                onApplySuggestion={ handleApply }
                 { ...regionProps }
             />
         )
@@ -72,9 +70,6 @@ describe('<ExtractedColorsPanel />', () => {
         expect(getAllByTestId('base-paint')).toHaveLength(2)
         expect(getByText('Ultramarine')).toBeInTheDocument()
         expect(getByText('2 parts Ultramarine + 1 part Titanium White')).toBeInTheDocument()
-
-        fireEvent.click(getByRole('button', { name: /apply to mixer/i }))
-        expect(handleApply).toHaveBeenCalledWith(suggestions[ 0 ])
     })
 
     it('shows placeholders when no colors or base paints are available', () => {
@@ -92,10 +87,10 @@ describe('<ExtractedColorsPanel />', () => {
         )
 
         expect(getByText('Upload an image to extract colors.')).toBeInTheDocument()
-        expect(getByText('No paints yet.')).toBeInTheDocument()
+        expect(getByText('No paints yet. Use search below to add paints.')).toBeInTheDocument()
     })
 
-    it('labels low match suggestions and omits the apply button when not provided', () => {
+    it('labels low match suggestions appropriately', () => {
         const onSelect = jest.fn()
         const lowMatchSuggestions = [
             {
@@ -109,7 +104,7 @@ describe('<ExtractedColorsPanel />', () => {
             { label: 'Charcoal', partsInMix: 0, rgbString: 'rgb(0, 0, 0)' }
         ]
 
-        const { getByText, queryByRole } = render(
+        const { getByText } = render(
             <ExtractedColorsPanel
                 colors={ [ { rgbString: 'rgb(20, 20, 20)', coveragePct: 12 } ] }
                 selectedIndex={ 0 }
@@ -122,7 +117,6 @@ describe('<ExtractedColorsPanel />', () => {
         )
 
         expect(getByText('Best possible match')).toBeInTheDocument()
-        expect(queryByRole('button', { name: /apply to mixer/i })).toBeNull()
     })
 
     it('falls back to generic paint labels when palette indices are missing', () => {
