@@ -11,7 +11,11 @@ const palette = [
 const regionProps = {
     selectedRegion: null,
     onRegionChange: jest.fn(),
-    isRegionMode: false
+    isRegionMode: false,
+    savedLoadouts: [],
+    onSaveLoadout: jest.fn(),
+    onLoadLoadout: jest.fn(),
+    onDeleteLoadout: jest.fn()
 }
 
 describe('<ExtractedColorsPanel />', () => {

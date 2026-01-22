@@ -7,6 +7,7 @@ export type ColorPart = {
 
 export type PaletteManager = {
 	palette: ColorPart[]
+	setPalette: React.Dispatch<React.SetStateAction<ColorPart[]>>
 	handleSwatchIncrement: (index: number) => void
 	handleSwatchDecrement: (index: number) => void
 	handleRemoveFromPalette: (index: number) => void

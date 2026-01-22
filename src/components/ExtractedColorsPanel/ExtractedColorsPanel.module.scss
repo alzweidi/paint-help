@@ -97,6 +97,45 @@
     gap: 0.5rem;
 }
 
+.paintsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+
+    h4 {
+        margin: 0;
+    }
+}
+
+.loadoutControls {
+    display: flex;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+}
+
+.loadoutButton {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border: 1px solid #666;
+    background: #f5f5f5;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.loadoutButton:hover {
+    background: #e0e0e0;
+}
+
+.loadoutSelect {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.3rem;
+    border: 1px solid #666;
+    background: #f5f5f5;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
 .paintList {
     display: flex;
     flex-wrap: wrap;

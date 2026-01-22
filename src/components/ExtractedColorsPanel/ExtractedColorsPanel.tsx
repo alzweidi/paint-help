@@ -5,6 +5,11 @@ import { ColorPart, ExtractedColor, RecipeSuggestion } from '../../types/types'
 import { useColorHighlight } from '../../data/hooks/useColorHighlight'
 import RegionSelector, { Region } from '../RegionSelector/RegionSelector'
 
+type SavedLoadout = {
+    name: string
+    palette: ColorPart[]
+}
+
 type ExtractedColorsPanelProps = {
     colors: ExtractedColor[]
     selectedIndex: number | null
@@ -16,6 +21,10 @@ type ExtractedColorsPanelProps = {
     onRegionChange: (region: Region | null) => void
     isRegionMode: boolean
     onRemovePaint?: (index: number) => void
+    savedLoadouts?: SavedLoadout[]
+    onSaveLoadout?: (name: string) => void
+    onLoadLoadout?: (name: string) => void
+    onDeleteLoadout?: (name: string) => void
 }
 
 const LOW_MATCH_THRESHOLD = 60
@@ -39,7 +48,11 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
     selectedRegion,
     onRegionChange,
     isRegionMode,
-    onRemovePaint
+    onRemovePaint,
+    savedLoadouts = [],
+    onSaveLoadout,
+    onLoadLoadout,
+    onDeleteLoadout
 }) => {
     const basePaints = palette.filter((paint) => !paint.recipe)
     const [ highlightMaskUrl, setHighlightMaskUrl ] = useState<string | null>(null)
@@ -145,7 +158,64 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                     </div>
 
                     <div className={ styles.basePaints }>
-                        <h4>Available paints</h4>
+                        <div className={ styles.paintsHeader }>
+                            <h4>Available paints</h4>
+                            <div className={ styles.loadoutControls }>
+                                { onSaveLoadout && (
+                                    <button
+                                        type="button"
+                                        className={ styles.loadoutButton }
+                                        onClick={ () => {
+                                            const name = prompt('Enter loadout name:')
+                                            if (name && name.trim()) {
+                                                onSaveLoadout(name.trim())
+                                            }
+                                        } }
+                                        title="Save current paints as a named loadout"
+                                    >
+                                        Save
+                                    </button>
+                                ) }
+                                { onLoadLoadout && savedLoadouts.length > 0 && (
+                                    <select
+                                        className={ styles.loadoutSelect }
+                                        defaultValue=""
+                                        onChange={ (e) => {
+                                            if (e.target.value) {
+                                                onLoadLoadout(e.target.value)
+                                                e.target.value = ''
+                                            }
+                                        } }
+                                    >
+                                        <option value="" disabled>Load...</option>
+                                        { savedLoadouts.map((loadout) => (
+                                            <option key={ loadout.name } value={ loadout.name }>
+                                                { loadout.name }
+                                            </option>
+                                        )) }
+                                    </select>
+                                ) }
+                                { onDeleteLoadout && savedLoadouts.length > 0 && (
+                                    <select
+                                        className={ styles.loadoutSelect }
+                                        defaultValue=""
+                                        onChange={ (e) => {
+                                            if (e.target.value && confirm(`Delete loadout "${e.target.value}"?`)) {
+                                                onDeleteLoadout(e.target.value)
+                                            }
+                                            e.target.value = ''
+                                        } }
+                                    >
+                                        <option value="" disabled>Delete...</option>
+                                        { savedLoadouts.map((loadout) => (
+                                            <option key={ loadout.name } value={ loadout.name }>
+                                                { loadout.name }
+                                            </option>
+                                        )) }
+                                    </select>
+                                ) }
+                            </div>
+                        </div>
                         { basePaints.length ? (
                             <div className={ styles.paintList }>
                                 { basePaints.map((paint, index) => (

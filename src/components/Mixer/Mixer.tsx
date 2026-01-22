@@ -29,14 +29,42 @@ const Mixer: React.FC = () => {
     const [ selectedRegion, setSelectedRegion ] = useState<Region | null>(null)
     const [ isRegionMode, setIsRegionMode ] = useState<boolean>(false)
 
-    const [ savedPalette ] = useLocalStorage('savedPalette', defaultPalette)
-    const initialPalette: (any) = savedPalette
+    type SavedLoadout = {
+        name: string
+        palette: typeof defaultPalette
+    }
+
+    const [ savedLoadouts, setSavedLoadouts ] = useLocalStorage<SavedLoadout[]>('savedLoadouts', [])
+    const initialPalette: (any) = defaultPalette
 
     const {
         palette,
+        setPalette,
         handleRemoveFromPalette,
         addToPalette
     } = usePaletteManager(initialPalette)
+
+    const handleSaveLoadout = (name: string) => {
+        const existingIndex = savedLoadouts.findIndex(l => l.name === name)
+        if (existingIndex >= 0) {
+            const updated = [ ...savedLoadouts ]
+            updated[ existingIndex ] = { name, palette: [ ...palette ] }
+            setSavedLoadouts(updated)
+        } else {
+            setSavedLoadouts([ ...savedLoadouts, { name, palette: [ ...palette ] } ])
+        }
+    }
+
+    const handleLoadLoadout = (name: string) => {
+        const loadout = savedLoadouts.find(l => l.name === name)
+        if (loadout) {
+            setPalette(loadout.palette)
+        }
+    }
+
+    const handleDeleteLoadout = (name: string) => {
+        setSavedLoadouts(savedLoadouts.filter(l => l.name !== name))
+    }
 
     const { extractColors } = useImageColorExtraction()
 
@@ -182,6 +210,10 @@ const Mixer: React.FC = () => {
                 onRegionChange={ handleRegionChange }
                 isRegionMode={ isRegionMode }
                 onRemovePaint={ handleRemoveFromPalette }
+                savedLoadouts={ savedLoadouts }
+                onSaveLoadout={ handleSaveLoadout }
+                onLoadLoadout={ handleLoadLoadout }
+                onDeleteLoadout={ handleDeleteLoadout }
             />
 
             <PaintNameSearch

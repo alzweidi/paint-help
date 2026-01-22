@@ -71,6 +71,7 @@ const usePaletteManager = (initialPalette: ColorPart[]): PaletteManager => {
 	)
 	return {
 		palette,
+		setPalette,
 		handleSwatchIncrement,
 		handleSwatchDecrement,
 		handleRemoveFromPalette,
