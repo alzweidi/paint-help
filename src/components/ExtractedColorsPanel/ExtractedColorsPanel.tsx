@@ -1,7 +1,8 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import styles from './ExtractedColorsPanel.module.scss'
 import tinycolor from "tinycolor2"
 import { ColorPart, ExtractedColor, RecipeSuggestion } from '../../types/types'
+import { useColorHighlight } from '../../data/hooks/useColorHighlight'
 
 type ExtractedColorsPanelProps = {
     colors: ExtractedColor[]
@@ -34,6 +35,43 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
     onApplySuggestion
 }) => {
     const basePaints = palette.filter((paint) => !paint.recipe)
+    const [ highlightMaskUrl, setHighlightMaskUrl ] = useState<string | null>(null)
+    const [ isHighlightActive, setIsHighlightActive ] = useState(false)
+    const { generateHighlightMask } = useColorHighlight()
+
+    useEffect(() => {
+        if (!referenceImageUrl || selectedIndex === null || !colors[ selectedIndex ]) {
+            setHighlightMaskUrl(null)
+            return
+        }
+
+        if (!isHighlightActive) {
+            setHighlightMaskUrl(null)
+            return
+        }
+
+        let cancelled = false
+        const targetColor = colors[ selectedIndex ].rgbString
+
+        generateHighlightMask(referenceImageUrl, targetColor).then((maskUrl) => {
+            if (!cancelled) {
+                setHighlightMaskUrl(maskUrl)
+            }
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [ referenceImageUrl, selectedIndex, colors, isHighlightActive, generateHighlightMask ])
+
+    const handleSwatchClick = (index: number) => {
+        if (index === selectedIndex && isHighlightActive) {
+            setIsHighlightActive(false)
+        } else {
+            onSelect(index)
+            setIsHighlightActive(true)
+        }
+    }
 
     return (
         <section className={ styles.ExtractedColorsPanel }>
@@ -45,9 +83,34 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                 <div className={ styles.referenceColumn }>
                     <div className={ styles.referenceImage }>
                         { referenceImageUrl ? (
-                            <img src={ referenceImageUrl } alt="Reference" />
+                            <div className={ styles.imageContainer }>
+                                <img src={ referenceImageUrl } alt="Reference" />
+                                { highlightMaskUrl && (
+                                    <img
+                                        className={ styles.highlightOverlay }
+                                        src={ highlightMaskUrl }
+                                        alt="Color highlight"
+                                    />
+                                ) }
+                            </div>
                         ) : (
                             <div className={ styles.placeholder }>No reference image yet.</div>
+                        ) }
+                        { isHighlightActive && selectedIndex !== null && colors[ selectedIndex ] && (
+                            <div className={ styles.highlightLegend }>
+                                <span
+                                    className={ styles.legendSwatch }
+                                    style={ { backgroundColor: colors[ selectedIndex ].rgbString } }
+                                />
+                                <span>Showing where Color { selectedIndex + 1 } appears</span>
+                                <button
+                                    type="button"
+                                    className={ styles.clearHighlight }
+                                    onClick={ () => setIsHighlightActive(false) }
+                                >
+                                    Clear
+                                </button>
+                            </div>
                         ) }
                     </div>
 
@@ -88,7 +151,7 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                             type="button"
                                             className={ `${ styles.swatchButton } ${ isSelected ? styles.selected : '' }` }
                                             style={ { backgroundColor: color.rgbString } }
-                                            onClick={ () => onSelect(index) }
+                                            onClick={ () => handleSwatchClick(index) }
                                             data-testid="extracted-swatch"
                                             aria-pressed={ isSelected }
                                         >
