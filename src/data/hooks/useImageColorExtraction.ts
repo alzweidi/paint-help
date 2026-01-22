@@ -17,8 +17,16 @@ const MAX_DISTINCT_CANDIDATES = 64
 
 type ExtractionMode = "dominant" | "distinct"
 
+export type RegionBounds = {
+    x: number
+    y: number
+    width: number
+    height: number
+}
+
 type ExtractColorsOptions = {
     mode?: ExtractionMode
+    region?: RegionBounds
 }
 
 const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -98,7 +106,22 @@ export const useImageColorExtraction = () => {
             }
 
             ctx.drawImage(image, 0, 0, targetWidth, targetHeight)
-            const pixels = ctx.getImageData(0, 0, targetWidth, targetHeight).data
+
+            let pixelData: Uint8ClampedArray
+            const region = options?.region
+
+            if (region) {
+                const regionX = Math.floor((region.x / 100) * targetWidth)
+                const regionY = Math.floor((region.y / 100) * targetHeight)
+                const regionW = Math.max(1, Math.floor((region.width / 100) * targetWidth))
+                const regionH = Math.max(1, Math.floor((region.height / 100) * targetHeight))
+
+                pixelData = ctx.getImageData(regionX, regionY, regionW, regionH).data
+            } else {
+                pixelData = ctx.getImageData(0, 0, targetWidth, targetHeight).data
+            }
+
+            const pixels = pixelData
 
             if (colorCount === "auto") {
                 const maxColors =

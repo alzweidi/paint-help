@@ -79,4 +79,20 @@
             height: 1rem;
         }
     }
+
+    .regionModeButton {
+        border: 2px solid #007700;
+        background: #e8f5e9;
+        color: #007700;
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 0.5rem 1rem;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: background 0.15s ease;
+    }
+
+    .regionModeButton:hover {
+        background: #c8e6c9;
+    }
 }

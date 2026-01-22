@@ -3,6 +3,7 @@ import styles from './ExtractedColorsPanel.module.scss'
 import tinycolor from "tinycolor2"
 import { ColorPart, ExtractedColor, RecipeSuggestion } from '../../types/types'
 import { useColorHighlight } from '../../data/hooks/useColorHighlight'
+import RegionSelector, { Region } from '../RegionSelector/RegionSelector'
 
 type ExtractedColorsPanelProps = {
     colors: ExtractedColor[]
@@ -12,6 +13,9 @@ type ExtractedColorsPanelProps = {
     palette: ColorPart[]
     suggestions: Array<RecipeSuggestion | null>
     onApplySuggestion?: (suggestion: RecipeSuggestion) => void
+    selectedRegion: Region | null
+    onRegionChange: (region: Region | null) => void
+    isRegionMode: boolean
 }
 
 const LOW_MATCH_THRESHOLD = 60
@@ -32,7 +36,10 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
     referenceImageUrl,
     palette,
     suggestions,
-    onApplySuggestion
+    onApplySuggestion,
+    selectedRegion,
+    onRegionChange,
+    isRegionMode
 }) => {
     const basePaints = palette.filter((paint) => !paint.recipe)
     const [ highlightMaskUrl, setHighlightMaskUrl ] = useState<string | null>(null)
@@ -83,20 +90,30 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                 <div className={ styles.referenceColumn }>
                     <div className={ styles.referenceImage }>
                         { referenceImageUrl ? (
-                            <div className={ styles.imageContainer }>
-                                <img src={ referenceImageUrl } alt="Reference" />
-                                { highlightMaskUrl && (
-                                    <img
-                                        className={ styles.highlightOverlay }
-                                        src={ highlightMaskUrl }
-                                        alt="Color highlight"
+                            <>
+                                { isRegionMode ? (
+                                    <RegionSelector
+                                        imageUrl={ referenceImageUrl }
+                                        selectedRegion={ selectedRegion }
+                                        onRegionSelected={ onRegionChange }
                                     />
+                                ) : (
+                                    <div className={ styles.imageContainer }>
+                                        <img src={ referenceImageUrl } alt="Reference" />
+                                        { highlightMaskUrl && (
+                                            <img
+                                                className={ styles.highlightOverlay }
+                                                src={ highlightMaskUrl }
+                                                alt="Color highlight"
+                                            />
+                                        ) }
+                                    </div>
                                 ) }
-                            </div>
+                            </>
                         ) : (
                             <div className={ styles.placeholder }>No reference image yet.</div>
                         ) }
-                        { isHighlightActive && selectedIndex !== null && colors[ selectedIndex ] && (
+                        { !isRegionMode && isHighlightActive && selectedIndex !== null && colors[ selectedIndex ] && (
                             <div className={ styles.highlightLegend }>
                                 <span
                                     className={ styles.legendSwatch }
@@ -110,6 +127,11 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                 >
                                     Clear
                                 </button>
+                            </div>
+                        ) }
+                        { isRegionMode && selectedRegion && (
+                            <div className={ styles.regionInfo }>
+                                <span>Extracting colors from selected region</span>
                             </div>
                         ) }
                     </div>

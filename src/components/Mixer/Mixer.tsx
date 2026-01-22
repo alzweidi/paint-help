@@ -24,7 +24,8 @@ import { suggestRecipe } from '../../utils/suggestRecipe'
 import usePaletteManager from '../../data/hooks/usePaletteManager'
 import { useColorMatching } from '../../data/hooks/useColorMatching'
 import { useLocalStorage } from '../../data/hooks/useLocalStorage'
-import { useImageColorExtraction } from '../../data/hooks/useImageColorExtraction'
+import { useImageColorExtraction, RegionBounds } from '../../data/hooks/useImageColorExtraction'
+import { Region } from '../RegionSelector/RegionSelector'
 
 import { defaultPalette } from '../../utils/palettes/defaultPalette'
 import { ColorPart, ExtractedColor, RecipeSuggestion } from '../../types/types'
@@ -44,6 +45,8 @@ const Mixer: React.FC = () => {
     const [ selectedExtractedColorIndex, setSelectedExtractedColorIndex ] = useState<number | null>(null)
     const [ extractedColorCount, setExtractedColorCount ] = useState<number | "auto">("auto")
     const [ preferDistinctColors, setPreferDistinctColors ] = useState<boolean>(true)
+    const [ selectedRegion, setSelectedRegion ] = useState<Region | null>(null)
+    const [ isRegionMode, setIsRegionMode ] = useState<boolean>(false)
 
     const [ savedPalette, setSavedPalette ] = useLocalStorage('savedPalette', defaultPalette)
     const initialPalette: (any) = savedPalette
@@ -132,10 +135,12 @@ const Mixer: React.FC = () => {
     const refreshExtractedColors = async (
         file: File,
         count: number | "auto",
-        distinctMode: boolean
+        distinctMode: boolean,
+        region?: RegionBounds | null
     ) => {
         const colors = await extractColors(file, count, {
             mode: distinctMode ? "distinct" : "dominant",
+            region: region ?? undefined,
         })
         setExtractedColors(colors)
         setSelectedExtractedColorIndex(colors.length ? 0 : null)
@@ -144,7 +149,10 @@ const Mixer: React.FC = () => {
     const handleImageSelected = async (file: File, objectUrl: string) => {
         setReferenceImageFile(file)
         setReferenceImageUrl(objectUrl)
-        await refreshExtractedColors(file, extractedColorCount, preferDistinctColors)
+        setSelectedRegion(null)
+        setIsRegionMode(true)
+        setExtractedColors([])
+        setSelectedExtractedColorIndex(null)
     }
 
     const handleExtractedColorSelect = (index: number) => {
@@ -163,8 +171,28 @@ const Mixer: React.FC = () => {
         const nextCount = value === "auto" ? "auto" : Number(value)
         setExtractedColorCount(nextCount)
 
-        if (referenceImageFile) {
-            await refreshExtractedColors(referenceImageFile, nextCount, preferDistinctColors)
+        if (referenceImageFile && selectedRegion) {
+            await refreshExtractedColors(referenceImageFile, nextCount, preferDistinctColors, selectedRegion)
+        }
+    }
+
+    const handleRegionChange = async (region: Region | null) => {
+        setSelectedRegion(region)
+        
+        if (region && referenceImageFile) {
+            await refreshExtractedColors(referenceImageFile, extractedColorCount, preferDistinctColors, region)
+        } else {
+            setExtractedColors([])
+            setSelectedExtractedColorIndex(null)
+        }
+    }
+
+    const toggleRegionMode = () => {
+        setIsRegionMode(!isRegionMode)
+        if (isRegionMode) {
+            setSelectedRegion(null)
+            setExtractedColors([])
+            setSelectedExtractedColorIndex(null)
         }
     }
 
@@ -244,10 +272,10 @@ const Mixer: React.FC = () => {
     }, [ mixedColor, palette ])
 
     useEffect(() => {
-        if (!referenceImageFile) {
+        if (!referenceImageFile || !selectedRegion) {
             return
         }
-        refreshExtractedColors(referenceImageFile, extractedColorCount, preferDistinctColors)
+        refreshExtractedColors(referenceImageFile, extractedColorCount, preferDistinctColors, selectedRegion)
     }, [ preferDistinctColors ])
 
     return (
@@ -322,6 +350,15 @@ const Mixer: React.FC = () => {
                         data-testid="distinct-toggle"
                     />
                 </label>
+                { referenceImageUrl && (
+                    <button
+                        type="button"
+                        className={ styles.regionModeButton }
+                        onClick={ toggleRegionMode }
+                    >
+                        { isRegionMode ? 'Exit region select' : 'Select region' }
+                    </button>
+                ) }
             </div>
 
             <ColorSwatches
@@ -345,6 +382,9 @@ const Mixer: React.FC = () => {
                 palette={ basePalette }
                 suggestions={ recipeSuggestions }
                 onApplySuggestion={ handleApplySuggestion }
+                selectedRegion={ selectedRegion }
+                onRegionChange={ handleRegionChange }
+                isRegionMode={ isRegionMode }
             />
 
             <AddColorUIComponent

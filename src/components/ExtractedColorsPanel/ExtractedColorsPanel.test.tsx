@@ -8,6 +8,12 @@ const palette = [
     { label: 'Saved Mix', partsInMix: 0, rgbString: 'rgb(1, 2, 3)', recipe: [] }
 ]
 
+const regionProps = {
+    selectedRegion: null,
+    onRegionChange: jest.fn(),
+    isRegionMode: false
+}
+
 describe('<ExtractedColorsPanel />', () => {
     it('renders extracted swatches and handles selection', () => {
         const onSelect = jest.fn()
@@ -22,6 +28,7 @@ describe('<ExtractedColorsPanel />', () => {
                 referenceImageUrl={ null }
                 palette={ palette }
                 suggestions={ [] }
+                { ...regionProps }
             />
         )
 
@@ -58,6 +65,7 @@ describe('<ExtractedColorsPanel />', () => {
                 palette={ palette }
                 suggestions={ suggestions }
                 onApplySuggestion={ handleApply }
+                { ...regionProps }
             />
         )
 
@@ -79,6 +87,7 @@ describe('<ExtractedColorsPanel />', () => {
                 referenceImageUrl={ null }
                 palette={ [] }
                 suggestions={ [] }
+                { ...regionProps }
             />
         )
 
@@ -108,6 +117,7 @@ describe('<ExtractedColorsPanel />', () => {
                 referenceImageUrl={ 'blob:reference' }
                 palette={ minimalPalette }
                 suggestions={ lowMatchSuggestions }
+                { ...regionProps }
             />
         )
 
@@ -134,6 +144,7 @@ describe('<ExtractedColorsPanel />', () => {
                 referenceImageUrl={ null }
                 palette={ [] }
                 suggestions={ suggestions }
+                { ...regionProps }
             />
         )
 

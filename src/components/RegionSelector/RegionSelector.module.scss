@@ -1,0 +1,87 @@
+.RegionSelector {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.imageContainer {
+    position: relative;
+    cursor: crosshair;
+    user-select: none;
+    line-height: 0;
+
+    img {
+        max-width: 100%;
+        height: auto;
+        display: block;
+    }
+}
+
+.selectionBox {
+    position: absolute;
+    border: 3px solid #00ff00;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 0 8px rgba(0, 255, 0, 0.6);
+    pointer-events: none;
+    z-index: 10;
+}
+
+.overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.overlayTop,
+.overlayBottom {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.overlayTop {
+    top: 0;
+}
+
+.overlayMiddle {
+    position: absolute;
+    left: 0;
+    width: 100%;
+}
+
+.overlayLeft,
+.overlayRight {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.overlayLeft {
+    left: 0;
+}
+
+.instructions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: #444;
+    padding: 0.4rem 0;
+}
+
+.clearButton {
+    border: 1px solid black;
+    background: white;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+}
+
+.clearButton:hover {
+    background: #eee;
+}
