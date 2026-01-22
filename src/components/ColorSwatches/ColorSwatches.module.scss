@@ -1,0 +1,198 @@
+.ColorSwatches {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    width: 100%;
+
+    label {
+        font-family: 'Roboto Condensed', sans-serif;
+        font-weight: 700;
+    }
+
+    .swatchContainer {
+        display: flex;
+        flex-direction: column;
+        margin: 5px 5px 5px 0;
+        width: 9rem;
+        align-content: center;
+        justify-content: center;
+
+
+
+        .swatch {
+            align-content: center;
+            border-radius: 0 0 20% 20%;
+            border: 1px solid black;
+            min-height: 6rem;
+            height: auto;
+            justify-content: center;
+            position: relative;
+            width: 9rem;
+
+            button {
+                background-color: transparent;
+                border: none;
+                font-size: 1.6rem;
+            }
+
+            .swatchUi {
+                align-items: center;
+                bottom: 0;
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: space-between;
+                left: 0;
+                position: relative;
+                right: 0;
+
+                .name {
+                    font-family: 'Roboto Condensed', sans-serif;
+                    display: block;
+                    font-size: 0.8rem;
+                    margin: 0.2rem 1.6rem 0.5rem 0.4rem;
+                    position: absolute;
+                    top: 1px;
+                    z-index: 2; //outside of edit mode this is underneath the buttons
+                    width: 9rem;
+                }
+
+                >input {
+                    padding: 0.2rem 0 0 0rem;
+                    position: absolute;
+                    width: 9rem;
+                    top: 0;
+                    z-index: 5; //cover the close button and the color swatch when being edited
+                }
+
+                .removeFromPalette {
+                    background-color: transparent;
+                    border: none;
+                    cursor: pointer;
+                    font-size: 1rem;
+                    position: absolute;
+                    right: 0;
+                    top: 1px;
+                    user-select: none;
+                    opacity: 0.5;
+                    display: flex;
+                    align-items: flex-end;
+                    z-index: 3;
+
+                    &:hover,
+                    &:active {
+                        opacity: 1;
+                    }
+                }
+
+                .recipeInfoButton {
+                    position: absolute;
+                    right: 1.5rem;
+                    top: 1px;
+                    font-size: 0.9rem;
+                    z-index: 4;
+                    cursor: pointer;
+                    opacity: 0.5;
+
+                    &:hover,
+                    &:active {
+                            opacity: 1;
+                        }
+                }
+            }
+
+            .changePartsQty {
+                align-items: center;
+                display: flex;
+                justify-content: space-around;
+                padding: 0;
+                width: 100%;
+
+                .subtractParts {
+                    border-radius: 50%;
+                    cursor: pointer;
+                    font-size: 1.5rem;
+                    padding: 0 0.5rem;
+                    user-select: none;
+                    width: 2rem;
+                }
+            }
+
+
+            .partsInMix {
+                font-family: 'PT Serif', sans-serif;
+                cursor: pointer;
+                display: flex;
+                font-size: 2rem;
+                justify-content: center;
+                padding: 0;
+                margin: 0;
+                position: relative;
+                top: 1.5rem;
+                user-select: none;
+                width: 100%;
+                flex-direction: column;
+                align-items: center;
+
+                .partsPercentage {
+                    display: flex;
+                    font-size: 1rem;
+                    padding: 0 0 0.75rem;
+                    margin: 0;
+                    justify-content: center;
+                }
+            }
+
+            .recipeInfo {
+                box-sizing: border-box;
+                position: absolute;
+                width: 9rem;
+                font-size: 0.75rem;
+                background-color: #FFFFFF33;
+                padding: 0 0.5rem 0.5rem;
+                top: 1.3rem;
+                user-select: none;
+                cursor: pointer;
+                z-index: 4;
+
+                .recipeList {
+                    width: 100%;
+                    padding: 0.5rem;
+                    box-sizing: border-box;
+                }
+
+                h3 {
+                    font-size: 0.9rem;
+                    margin: 0.5rem 0 0 0;
+                }
+            }
+        }
+
+        .changePartsQty {
+            align-items: center;
+            display: flex;
+            justify-content: space-around;
+            padding: 0;
+            width: 100%;
+
+            .subtractParts {
+                border-radius: 50%;
+                cursor: pointer;
+                font-size: 1.5rem;
+                margin: 0.25rem 0 0 0;
+                padding: 0 0.5rem;
+                user-select: none;
+                width: 2rem;
+                opacity: 0.5;
+                transition-duration: 0.3s;
+                transition-property: opacity;
+
+                &:hover, &:active {
+                    opacity: 1;
+                }
+            }
+        }
+    }
+}
+
+

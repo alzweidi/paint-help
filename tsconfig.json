@@ -1,0 +1,24 @@
+{
+    "compilerOptions": {
+        "jsx": "react",
+        "esModuleInterop": true,
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
+        "lib": [
+            "es2017",
+            "dom"
+        ],
+        "typeRoots": [
+            "./node_modules/@types",
+            "src/types"
+        ]
+    },
+    "setupFilesAfterEnv": [
+        "@testing-library/jest-dom/extend-expect"
+    ],
+    "include": [
+        "src/**/*",
+        "src/types/**/*",
+        "./src/types/scss.d.ts"
+    ]
+}

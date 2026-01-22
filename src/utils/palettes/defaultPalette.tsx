@@ -1,0 +1,17 @@
+export const defaultPalette = [
+    { "label": "White", "rgbString": "rgb(255,255,255)", "partsInMix": 0 },
+    { "label": "Cadmium Yellow", "rgbString": "rgb(254,236,0)", "partsInMix": 0 },
+    { "label": "Hansa Yellow", "rgbString": "rgb(252,211,0)", "partsInMix": 0 },
+    { "label": "Cadmium Orange", "rgbString": "rgb(255,105,0)", "partsInMix": 0 },
+    { "label": "Cadmium Red", "rgbString": "rgb(255,39,2)", "partsInMix": 0 },
+    { "label": "Quinacridone Magenta", "rgbString": "rgb(78,0,66)", "partsInMix": 0 },
+    { "label": "Cobalt Violet", "rgbString": "rgb(150,0,255)", "partsInMix": 0 },
+    { "label": "Ultramarine Blue", "rgbString": "rgb(25,0,89)", "partsInMix": 0 },
+    { "label": "Cerulean Blue", "rgbString": "rgb(0,33,133)", "partsInMix": 0 },
+    { "label": "Phthalo Blue", "rgbString": "rgb(13,27,68)", "partsInMix": 0 },
+    { "label": "Phthalo Green", "rgbString": "rgb(0,60,50)", "partsInMix": 0 },
+    { "label": "Permanent Green", "rgbString": "rgb(7,109,22)", "partsInMix": 0 },
+    { "label": "Sap Green", "rgbString": "rgb(107,148,4)", "partsInMix": 0 },
+    { "label": "Burnt Sienna", "rgbString": "rgb(123,72,0)", "partsInMix": 0 },
+    { "label": "Black", "rgbString": "rgb(0,0,0)", "partsInMix": 0 },
+]

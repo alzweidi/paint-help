@@ -1,0 +1,56 @@
+.ColorPicker {
+    display: flex;
+    flex-direction: column;
+    padding: 5px;
+    margin:  0;
+    align-items: center;
+    border: 0;
+    box-sizing: border-box;
+    justify-content: flex-start;
+    position: relative;
+    width: 210px;
+
+    .closeButton {
+        position: absolute;
+        right: 3px;
+        top: 3px;
+        background-color: transparent;
+        border: none;
+        margin: 0;
+        padding: 0;
+        z-index: 3;
+        opacity: 0.5;
+
+        &:hover {
+            opacity: 1;
+        }
+    }
+
+    .shadeSlider {
+        margin: 1rem 0;
+        width: 180px;
+    }
+
+    .colorPreview {
+        align-items: center;
+        display: flex;
+        justify-content: center;
+        margin: 1rem 0;
+        padding: 0.5rem 0.25rem;
+        width: 100px;
+    }
+
+    button {
+        border-radius: 10%;
+        font-size: 1rem;
+        margin: 0.75rem 0 0 0;
+        padding: 0.5rem 1rem;
+        opacity: 0.75;
+
+        &:hover,
+        &:focus,
+        &:active {
+            opacity: 1;
+        }
+    }
+}

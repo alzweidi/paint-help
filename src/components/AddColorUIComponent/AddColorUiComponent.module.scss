@@ -1,0 +1,18 @@
+.AddColorUIComponent {
+    >button {
+        background-color: transparent;
+        border: 0;
+        font-size: 3rem;
+        position: absolute;
+        width: 5rem;
+        opacity: 0.5;
+        margin: 0.5rem 0 0 0;
+        transition-duration: 0.3s;
+        transition-property: opacity;
+
+        &:hover,
+        &:active {
+            opacity: 1;
+        }
+    }
+}

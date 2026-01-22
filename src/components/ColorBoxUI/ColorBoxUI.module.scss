@@ -1,0 +1,30 @@
+.ColorBoxUi {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    width: 100%;
+
+    label {
+        display: flex;
+        flex-direction: column;
+        margin: 0 0.5rem 0 0.5rem;
+    }
+
+    button {
+        padding: 0;
+        background-color: transparent;
+        border: 0;
+        text-transform: uppercase;
+        opacity: 0.5;
+
+        &:hover,
+        &:active {
+            opacity: 0.9;
+        }
+
+        svg {
+            height: 1.6rem;
+            width: 1.6rem;
+        }
+    }
+}

@@ -1,0 +1,25 @@
+.MixedColorContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: -1;
+    transition: background-color 0.15s ease-in-out;
+    padding: 1rem;
+    width: 100%;
+
+    .mixedColorValues {
+        display: flex;
+        position: relative;
+        padding: 3rem 2rem;
+        display: flex;
+        flex-direction: row;
+        width: 60%;
+        height: 100%;
+        justify-content: space-between;
+
+        #mixedColor {
+            flex-direction: column;
+        }
+    }
+}
