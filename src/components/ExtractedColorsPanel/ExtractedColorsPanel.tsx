@@ -57,27 +57,36 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
     const basePaints = palette.filter((paint) => !paint.recipe)
     const [ highlightMaskUrl, setHighlightMaskUrl ] = useState<string | null>(null)
     const [ isHighlightActive, setIsHighlightActive ] = useState(false)
-    const { generateHighlightMask } = useColorHighlight()
+    const [ heatmapUrl, setHeatmapUrl ] = useState<string | null>(null)
+    const [ isHeatmapActive, setIsHeatmapActive ] = useState(false)
+    const { generateHighlightMask, generateDifferenceHeatmap } = useColorHighlight()
+
+    const selectedColor = selectedIndex === null ? null : colors[ selectedIndex ] ?? null
+    const selectedSuggestion = selectedIndex === null ? null : suggestions[ selectedIndex ] ?? null
+    const heatmapTargetColor = selectedSuggestion?.resultRgb ?? selectedColor?.rgbString ?? null
+    const matchPct = selectedSuggestion ? Math.min(100, Math.max(0, selectedSuggestion.matchPct)) : 0
 
     useEffect(() => {
         if (isRegionMode && colors.length === 0) {
             setIsHighlightActive(false)
+            setIsHeatmapActive(false)
+            setHeatmapUrl(null)
         }
     }, [ isRegionMode, colors.length ])
 
     useEffect(() => {
-        if (!referenceImageUrl || selectedIndex === null || !colors[ selectedIndex ]) {
+        if (!referenceImageUrl || !selectedColor) {
             setHighlightMaskUrl(null)
             return
         }
 
-        if (!isHighlightActive) {
+        if (!isHighlightActive || isHeatmapActive) {
             setHighlightMaskUrl(null)
             return
         }
 
         let cancelled = false
-        const targetColor = colors[ selectedIndex ].rgbString
+        const targetColor = selectedColor.rgbString
 
         generateHighlightMask(referenceImageUrl, targetColor, {
             region: selectedRegion ?? undefined
@@ -90,15 +99,52 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
         return () => {
             cancelled = true
         }
-    }, [ referenceImageUrl, selectedIndex, colors, isHighlightActive, generateHighlightMask, selectedRegion ])
+    }, [ referenceImageUrl, selectedColor, isHighlightActive, isHeatmapActive, generateHighlightMask, selectedRegion ])
+
+    useEffect(() => {
+        if (!referenceImageUrl || !heatmapTargetColor || !isHeatmapActive) {
+            setHeatmapUrl(null)
+            return
+        }
+
+        let cancelled = false
+
+        generateDifferenceHeatmap(referenceImageUrl, heatmapTargetColor, {
+            region: selectedRegion ?? undefined
+        }).then((maskUrl) => {
+            if (!cancelled) {
+                setHeatmapUrl(maskUrl)
+            }
+        })
+
+        return () => {
+            cancelled = true
+        }
+    }, [ referenceImageUrl, heatmapTargetColor, isHeatmapActive, generateDifferenceHeatmap, selectedRegion ])
 
     const handleSwatchClick = (index: number) => {
-        if (index === selectedIndex && isHighlightActive) {
+        if (index === selectedIndex && isHighlightActive && !isHeatmapActive) {
             setIsHighlightActive(false)
         } else {
             onSelect(index)
             setIsHighlightActive(true)
         }
+    }
+
+    const toggleHighlight = () => {
+        if (!selectedColor) {
+            return
+        }
+        setIsHeatmapActive(false)
+        setIsHighlightActive((prev) => !prev)
+    }
+
+    const toggleHeatmap = () => {
+        if (!heatmapTargetColor) {
+            return
+        }
+        setIsHeatmapActive((prev) => !prev)
+        setIsHighlightActive(false)
     }
 
     return (
@@ -121,7 +167,14 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                 ) : (
                                     <div className={ styles.imageContainer }>
                                         <img src={ referenceImageUrl } alt="Reference" />
-                                        { highlightMaskUrl && (
+                                        { heatmapUrl && (
+                                            <img
+                                                className={ styles.heatmapOverlay }
+                                                src={ heatmapUrl }
+                                                alt="Difference heatmap"
+                                            />
+                                        ) }
+                                        { !heatmapUrl && highlightMaskUrl && (
                                             <img
                                                 className={ styles.highlightOverlay }
                                                 src={ highlightMaskUrl }
@@ -134,17 +187,29 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                         ) : (
                             <div className={ styles.placeholder }>No reference image yet.</div>
                         ) }
-                        { isHighlightActive && selectedIndex !== null && colors[ selectedIndex ] && (
+                        { isHighlightActive && !isHeatmapActive && selectedColor && (
                             <div className={ styles.highlightLegend }>
                                 <span
                                     className={ styles.legendSwatch }
-                                    style={ { backgroundColor: colors[ selectedIndex ].rgbString } }
+                                    style={ { backgroundColor: selectedColor.rgbString } }
                                 />
-                                <span>Showing where Color { selectedIndex + 1 } appears</span>
+                                <span>Highlighting Color { selectedIndex + 1 } in the image</span>
                                 <button
                                     type="button"
                                     className={ styles.clearHighlight }
                                     onClick={ () => setIsHighlightActive(false) }
+                                >
+                                    Clear
+                                </button>
+                            </div>
+                        ) }
+                        { isHeatmapActive && heatmapTargetColor && (
+                            <div className={ styles.heatmapLegend }>
+                                <span>Heatmap: green is close, red is off</span>
+                                <button
+                                    type="button"
+                                    className={ styles.clearHighlight }
+                                    onClick={ () => setIsHeatmapActive(false) }
                                 >
                                     Clear
                                 </button>
@@ -156,6 +221,71 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                             </div>
                         ) }
                     </div>
+
+                    { referenceImageUrl && selectedColor && (
+                        <div className={ styles.accuracyPanel }>
+                            <div className={ styles.accuracyHeader }>Visual accuracy</div>
+                            <div className={ styles.accuracyRow }>
+                                <div className={ styles.accuracySwatches }>
+                                    <div className={ styles.accuracySwatch }>
+                                        <span className={ styles.accuracyLabel }>Target</span>
+                                        <span
+                                            className={ styles.accuracyChip }
+                                            style={ { backgroundColor: selectedColor.rgbString } }
+                                        />
+                                        <span className={ styles.accuracyValue }>
+                                            { selectedColor.rgbString }
+                                        </span>
+                                    </div>
+                                    <div className={ styles.accuracySwatch }>
+                                        <span className={ styles.accuracyLabel }>Mix</span>
+                                        <span
+                                            className={ styles.accuracyChip }
+                                            style={ { backgroundColor: selectedSuggestion?.resultRgb ?? '#ffffff' } }
+                                        />
+                                        <span className={ styles.accuracyValue }>
+                                            { selectedSuggestion?.resultRgb ?? 'No mix yet' }
+                                        </span>
+                                    </div>
+                                </div>
+
+                                { selectedSuggestion ? (
+                                    <div className={ styles.accuracyMeter }>
+                                        <div className={ styles.meterBar }>
+                                            <div
+                                                className={ styles.meterFill }
+                                                style={ { width: `${ matchPct }%` } }
+                                            />
+                                        </div>
+                                        <div className={ styles.meterMeta }>
+                                            <span>Match { matchPct.toFixed(1) }%</span>
+                                            <span>Delta E { selectedSuggestion.deltaE.toFixed(2) }</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className={ styles.placeholder }>No suggestion yet.</div>
+                                ) }
+
+                                <div className={ styles.overlayControls }>
+                                    <button
+                                        type="button"
+                                        className={ `${ styles.overlayButton } ${ isHighlightActive && !isHeatmapActive ? styles.activeOverlay : '' }` }
+                                        onClick={ toggleHighlight }
+                                    >
+                                        Highlight
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={ `${ styles.overlayButton } ${ isHeatmapActive ? styles.activeOverlay : '' }` }
+                                        onClick={ toggleHeatmap }
+                                        disabled={ !heatmapTargetColor }
+                                    >
+                                        Heatmap
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ) }
 
                     <div className={ styles.basePaints }>
                         <div className={ styles.paintsHeader }>

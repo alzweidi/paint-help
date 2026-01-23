@@ -51,6 +51,15 @@
     pointer-events: none;
 }
 
+.heatmapOverlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
 .highlightLegend {
     display: flex;
     align-items: center;
@@ -80,6 +89,117 @@
 
 .clearHighlight:hover {
     background: #eee;
+}
+
+.heatmapLegend {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    padding: 0.4rem 0.6rem;
+    background: #fff4e5;
+    border: 1px solid #f0c36a;
+    border-radius: 4px;
+}
+
+.accuracyPanel {
+    border: 1px solid #222;
+    padding: 0.6rem;
+    background: #fafafa;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.accuracyHeader {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.accuracyRow {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.accuracySwatches {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+}
+
+.accuracySwatch {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.accuracyLabel {
+    font-weight: 600;
+}
+
+.accuracyChip {
+    width: 100%;
+    height: 32px;
+    border: 1px solid black;
+}
+
+.accuracyValue {
+    font-size: 0.7rem;
+    color: #333;
+    word-break: break-word;
+}
+
+.accuracyMeter {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.meterBar {
+    height: 10px;
+    border: 1px solid black;
+    background: #e0e0e0;
+    overflow: hidden;
+}
+
+.meterFill {
+    height: 100%;
+    background: linear-gradient(90deg, #c62828, #f9a825, #2e7d32);
+}
+
+.meterMeta {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.75rem;
+}
+
+.overlayControls {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.overlayButton {
+    border: 1px solid black;
+    background: white;
+    font-size: 0.75rem;
+    padding: 0.2rem 0.5rem;
+    cursor: pointer;
+    border-radius: 3px;
+}
+
+.overlayButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.activeOverlay {
+    background: #111;
+    color: white;
 }
 
 .regionInfo {
