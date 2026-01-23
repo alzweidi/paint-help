@@ -40,11 +40,14 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
 
 const toExtractedColors = (colors: string[], clusterSizes: number[]): ExtractedColor[] => {
     const total = clusterSizes.reduce((sum, size) => sum + size, 0)
-    return colors.map((rgbString, index) => {
-        const size = clusterSizes[ index ] ?? 0
-        const coveragePct = total > 0 ? (size / total) * 100 : 0
-        return { rgbString, coveragePct }
-    })
+    return colors
+        .map((rgbString, index) => {
+            const size = clusterSizes[ index ] ?? 0
+            const coveragePct = total > 0 ? (size / total) * 100 : 0
+            return { rgbString, coveragePct, index }
+        })
+        .sort((a, b) => (b.coveragePct - a.coveragePct) || (a.index - b.index))
+        .map(({ rgbString, coveragePct }) => ({ rgbString, coveragePct }))
 }
 
 const selectColors = (

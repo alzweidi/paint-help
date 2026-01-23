@@ -1,6 +1,13 @@
 import React from 'react'
-import { render, fireEvent } from '@testing-library/react'
+import { render, fireEvent, waitFor } from '@testing-library/react'
 import ExtractedColorsPanel from './ExtractedColorsPanel'
+
+jest.mock('../../data/hooks/useColorHighlight', () => ({
+    useColorHighlight: () => ({
+        generateHighlightMask: () => Promise.resolve('data:highlight-mask'),
+        generateDifferenceHeatmap: () => Promise.resolve('data:heatmap-mask')
+    })
+}))
 
 const palette = [
     { label: 'Ultramarine', partsInMix: 0, rgbString: 'rgb(10, 20, 30)' },
@@ -92,6 +99,188 @@ describe('<ExtractedColorsPanel />', () => {
 
         expect(getByText('Upload an image to extract colors.')).toBeInTheDocument()
         expect(getByText('No paints yet. Use search below to add paints.')).toBeInTheDocument()
+    })
+
+    it('renders the accuracy panel and toggles highlight/heatmap overlays', async () => {
+        const onSelect = jest.fn()
+        const suggestions = [
+            {
+                ingredients: [ { index: 0, parts: 1 } ],
+                resultRgb: 'rgb(120, 130, 140)',
+                deltaE: 1,
+                matchPct: 98.5
+            }
+        ]
+
+        const { getByText, getByAltText, queryByAltText } = render(
+            <ExtractedColorsPanel
+                colors={ [ { rgbString: 'rgb(1, 2, 3)', coveragePct: 88.8 } ] }
+                selectedIndex={ 0 }
+                onSelect={ onSelect }
+                referenceImageUrl={ 'blob:reference' }
+                palette={ palette }
+                suggestions={ suggestions }
+                { ...regionProps }
+                selectedRegion={ { x: 10, y: 10, width: 20, height: 20 } }
+            />
+        )
+
+        expect(getByText('Visual accuracy')).toBeInTheDocument()
+        expect(getByText('Match 98.5%')).toBeInTheDocument()
+        expect(getByText('Delta E 1.00')).toBeInTheDocument()
+
+        fireEvent.click(getByText('Highlight'))
+        await waitFor(() => expect(getByAltText('Color highlight')).toBeInTheDocument())
+        expect(getByText('Highlighting Color 1 in the image')).toBeInTheDocument()
+        fireEvent.click(getByText('Clear'))
+        await waitFor(() => expect(queryByAltText('Color highlight')).toBeNull())
+
+        fireEvent.click(getByText('Heatmap'))
+        await waitFor(() => expect(getByAltText('Difference heatmap')).toBeInTheDocument())
+        expect(getByText('Heatmap: green is close, red is off')).toBeInTheDocument()
+        fireEvent.click(getByText('Clear'))
+        await waitFor(() => expect(queryByAltText('Difference heatmap')).toBeNull())
+    })
+
+    it('toggles highlight state when clicking the same swatch', async () => {
+        const onSelect = jest.fn()
+        const { getAllByTestId, getByText, queryByText } = render(
+            <ExtractedColorsPanel
+                colors={ [ { rgbString: 'rgb(1, 2, 3)', coveragePct: 88.8 } ] }
+                selectedIndex={ 0 }
+                onSelect={ onSelect }
+                referenceImageUrl={ 'blob:reference' }
+                palette={ palette }
+                suggestions={ [] }
+                { ...regionProps }
+            />
+        )
+
+        const swatch = getAllByTestId('extracted-swatch')[ 0 ]
+        fireEvent.click(swatch)
+        expect(onSelect).toHaveBeenCalledWith(0)
+        expect(getByText('Highlighting Color 1 in the image')).toBeInTheDocument()
+
+        fireEvent.click(swatch)
+        await waitFor(() => expect(queryByText('Highlighting Color 1 in the image')).toBeNull())
+    })
+
+    it('renders heatmaps without a selected region', async () => {
+        const onSelect = jest.fn()
+        const suggestions = [
+            {
+                ingredients: [ { index: 0, parts: 1 } ],
+                resultRgb: 'rgb(120, 130, 140)',
+                deltaE: 1,
+                matchPct: 98.5
+            }
+        ]
+
+        const { getByText, getByAltText } = render(
+            <ExtractedColorsPanel
+                colors={ [ { rgbString: 'rgb(1, 2, 3)', coveragePct: 88.8 } ] }
+                selectedIndex={ 0 }
+                onSelect={ onSelect }
+                referenceImageUrl={ 'blob:reference' }
+                palette={ palette }
+                suggestions={ suggestions }
+                { ...regionProps }
+            />
+        )
+
+        fireEvent.click(getByText('Heatmap'))
+        await waitFor(() => expect(getByAltText('Difference heatmap')).toBeInTheDocument())
+    })
+
+    it('renders region selector and region info when in region mode', () => {
+        const onSelect = jest.fn()
+        const selectedRegion = { x: 10, y: 20, width: 30, height: 40 }
+        const { getByText } = render(
+            <ExtractedColorsPanel
+                colors={ [] }
+                selectedIndex={ null }
+                onSelect={ onSelect }
+                referenceImageUrl={ 'blob:reference' }
+                palette={ palette }
+                suggestions={ [] }
+                selectedRegion={ selectedRegion }
+                onRegionChange={ jest.fn() }
+                isRegionMode={ true }
+                onSaveLoadout={ jest.fn() }
+                onLoadLoadout={ jest.fn() }
+                onDeleteLoadout={ jest.fn() }
+                savedLoadouts={ [] }
+            />
+        )
+
+        expect(getByText('Region selected — colors will be extracted from this area')).toBeInTheDocument()
+        expect(getByText('Extracting colors from selected region')).toBeInTheDocument()
+    })
+
+    it('supports loadout save, load, delete, and paint removal', () => {
+        const onSelect = jest.fn()
+        const onRemovePaint = jest.fn()
+        const onSaveLoadout = jest.fn()
+        const onLoadLoadout = jest.fn()
+        const onDeleteLoadout = jest.fn()
+        const savedLoadouts = [ { name: 'Studio', palette } ]
+
+        const promptSpy = jest.spyOn(window, 'prompt').mockReturnValue('Session')
+        const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
+
+        const { getByText, getAllByTestId, getAllByRole } = render(
+            <ExtractedColorsPanel
+                colors={ [ { rgbString: 'rgb(1, 2, 3)', coveragePct: 88.8 } ] }
+                selectedIndex={ 0 }
+                onSelect={ onSelect }
+                referenceImageUrl={ 'blob:reference' }
+                palette={ palette }
+                suggestions={ [] }
+                selectedRegion={ null }
+                onRegionChange={ jest.fn() }
+                isRegionMode={ false }
+                onRemovePaint={ onRemovePaint }
+                onSaveLoadout={ onSaveLoadout }
+                onLoadLoadout={ onLoadLoadout }
+                onDeleteLoadout={ onDeleteLoadout }
+                savedLoadouts={ savedLoadouts }
+            />
+        )
+
+        fireEvent.click(getByText('Save'))
+        expect(onSaveLoadout).toHaveBeenCalledWith('Session')
+
+        const selects = getAllByRole('combobox')
+        fireEvent.change(selects[ 0 ], { target: { value: 'Studio' } })
+        expect(onLoadLoadout).toHaveBeenCalledWith('Studio')
+
+        fireEvent.change(selects[ 1 ], { target: { value: 'Studio' } })
+        expect(onDeleteLoadout).toHaveBeenCalledWith('Studio')
+
+        fireEvent.click(getAllByTestId('base-paint')[ 0 ].querySelector('button') as HTMLElement)
+        expect(onRemovePaint).toHaveBeenCalledWith(0)
+
+        promptSpy.mockRestore()
+        confirmSpy.mockRestore()
+    })
+
+    it('handles missing selected colors safely', () => {
+        const onSelect = jest.fn()
+        const { getByText } = render(
+            <ExtractedColorsPanel
+                colors={ [] }
+                selectedIndex={ 0 }
+                onSelect={ onSelect }
+                referenceImageUrl={ null }
+                palette={ [] }
+                suggestions={ [] }
+                selectedRegion={ null }
+                onRegionChange={ jest.fn() }
+                isRegionMode={ false }
+            />
+        )
+
+        expect(getByText('Upload an image to extract colors.')).toBeInTheDocument()
     })
 
     it('labels low match suggestions appropriately', () => {

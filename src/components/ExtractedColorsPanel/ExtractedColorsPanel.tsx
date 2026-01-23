@@ -132,17 +132,11 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
     }
 
     const toggleHighlight = () => {
-        if (!selectedColor) {
-            return
-        }
         setIsHeatmapActive(false)
         setIsHighlightActive((prev) => !prev)
     }
 
     const toggleHeatmap = () => {
-        if (!heatmapTargetColor) {
-            return
-        }
         setIsHeatmapActive((prev) => !prev)
         setIsHighlightActive(false)
     }

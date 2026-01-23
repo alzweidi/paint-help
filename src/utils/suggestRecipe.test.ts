@@ -1,6 +1,6 @@
 import mixbox from "mixbox"
 import { normalizeRgbString } from "./colorConversion"
-import { suggestRecipe, __testOnly } from "./suggestRecipe"
+import { createRecipeSuggester, suggestRecipe, __testOnly } from "./suggestRecipe"
 
 const mixTwoColors = (colorA: string, colorB: string, partsA: number, partsB: number) => {
     const latentA = mixbox.rgbToLatent(colorA)
@@ -84,6 +84,11 @@ describe("suggestRecipe", () => {
 
         const result = suggestRecipe(bigPalette, "rgb(0, 0, 0)", { maxColors: 1 })
         expect(result).not.toBeNull()
+    })
+
+    it("supports createRecipeSuggester with empty palettes", () => {
+        const suggester = createRecipeSuggester([])
+        expect(suggester("rgb(0, 0, 0)")).toBeNull()
     })
 })
 

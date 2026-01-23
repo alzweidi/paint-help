@@ -25,12 +25,7 @@ const RegionSelector: React.FC<RegionSelectorProps> = ({
     const [ currentRegion, setCurrentRegion ] = useState<Region | null>(null)
 
     const getRelativeCoords = useCallback((e: React.MouseEvent): { x: number; y: number } => {
-        const container = containerRef.current
-        if (!container) {
-            return { x: 0, y: 0 }
-        }
-
-        const rect = container.getBoundingClientRect()
+        const rect = containerRef.current!.getBoundingClientRect()
         const x = ((e.clientX - rect.left) / rect.width) * 100
         const y = ((e.clientY - rect.top) / rect.height) * 100
 
