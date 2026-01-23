@@ -13,7 +13,7 @@ const clampToByte = (value: number): number => {
 
 const getSamplePixels = (pixels: Uint8ClampedArray): RgbSample[] => {
     const totalPixels = Math.floor(pixels.length / 4)
-    const stride = Math.max(1, Math.floor(totalPixels / MAX_SAMPLE_PIXELS))
+    const stride = Math.max(1, Math.ceil(totalPixels / MAX_SAMPLE_PIXELS))
     const samples: RgbSample[] = []
 
     for (let i = 0; i < totalPixels; i++) {

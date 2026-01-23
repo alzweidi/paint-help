@@ -24,6 +24,20 @@ const rgbStringToLab = (rgbString: string) => {
     return xyzToLab(rgbToXyz(rgb))
 }
 
+type PreparedPalette = {
+    palette: ColorPart[]
+    paletteLabs: ReturnType<typeof rgbStringToLab>[]
+    latents: Array<number[] | null>
+}
+
+const preparePalette = (palette: ColorPart[]): PreparedPalette => {
+    return {
+        palette,
+        paletteLabs: palette.map((color) => rgbStringToLab(color.rgbString)),
+        latents: palette.map((color) => mixbox.rgbToLatent(color.rgbString) ?? null),
+    }
+}
+
 const mixLatents = (
     ingredients: Array<{ index: number; parts: number }>,
     latents: Array<number[] | null>
@@ -101,11 +115,30 @@ const evaluateCandidate = (
     }
 }
 
-export const suggestRecipe = (
-    palette: ColorPart[],
+const buildCandidateIndices = (
+    paletteLabs: Array<ReturnType<typeof rgbStringToLab>>,
+    targetLab: ReturnType<typeof rgbStringToLab>
+): number[] => {
+    if (paletteLabs.length > LARGE_PALETTE_THRESHOLD) {
+        return paletteLabs
+            .map((lab, index) => ({
+                index,
+                deltaE: deltaE94(lab, targetLab),
+            }))
+            .sort((a, b) => (a.deltaE - b.deltaE) || (a.index - b.index))
+            .slice(0, MAX_CANDIDATE_PAINTS)
+            .map((entry) => entry.index)
+    }
+
+    return paletteLabs.map((_, index) => index)
+}
+
+const suggestRecipeWithPrepared = (
+    prepared: PreparedPalette,
     targetRgb: string,
     options?: SuggestRecipeOptions
 ): RecipeSuggestion | null => {
+    const { palette, paletteLabs, latents } = prepared
     if (!palette.length) {
         return null
     }
@@ -114,21 +147,7 @@ export const suggestRecipe = (
     const maxTotalParts = Math.max(1, Math.floor(options?.maxTotalParts ?? DEFAULT_MAX_TOTAL_PARTS))
 
     const targetLab = rgbStringToLab(targetRgb)
-
-    const scoredPalette = palette.map((color, index) => ({
-        index,
-        deltaE: deltaE94(rgbStringToLab(color.rgbString), targetLab),
-    }))
-
-    const candidateIndices =
-        palette.length > LARGE_PALETTE_THRESHOLD
-            ? scoredPalette
-                  .sort((a, b) => (a.deltaE - b.deltaE) || (a.index - b.index))
-                  .slice(0, MAX_CANDIDATE_PAINTS)
-                  .map((entry) => entry.index)
-            : palette.map((_, index) => index)
-
-    const latents = palette.map((color) => mixbox.rgbToLatent(color.rgbString) ?? null)
+    const candidateIndices = buildCandidateIndices(paletteLabs, targetLab)
     const activeIndices = candidateIndices.filter((index) => latents[ index ])
 
     if (!activeIndices.length) {
@@ -208,6 +227,26 @@ export const suggestRecipe = (
 
     const { totalParts, ...result } = best
     return result
+}
+
+export const createRecipeSuggester = (
+    palette: ColorPart[],
+    options?: SuggestRecipeOptions
+) => {
+    const prepared = preparePalette(palette)
+    return (targetRgb: string) => suggestRecipeWithPrepared(prepared, targetRgb, options)
+}
+
+export const suggestRecipe = (
+    palette: ColorPart[],
+    targetRgb: string,
+    options?: SuggestRecipeOptions
+): RecipeSuggestion | null => {
+    if (!palette.length) {
+        return null
+    }
+
+    return suggestRecipeWithPrepared(preparePalette(palette), targetRgb, options)
 }
 
 export const __testOnly = {

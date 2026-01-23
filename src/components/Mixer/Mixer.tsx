@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import styles from './Mixer.module.scss'
 
 //components
@@ -7,7 +7,7 @@ import ExtractedColorsPanel from '../ExtractedColorsPanel/ExtractedColorsPanel'
 import PaintNameSearch from '../PaintNameSearch/PaintNameSearch'
 
 //color mixing and conversion libraries
-import { suggestRecipe } from '../../utils/suggestRecipe'
+import { createRecipeSuggester } from '../../utils/suggestRecipe'
 
 //custom hooks
 import usePaletteManager from '../../data/hooks/usePaletteManager'
@@ -23,6 +23,7 @@ const Mixer: React.FC = () => {
     const [ referenceImageFile, setReferenceImageFile ] = useState<File | null>(null)
     const [ referenceImageUrl, setReferenceImageUrl ] = useState<string | null>(null)
     const [ extractedColors, setExtractedColors ] = useState<ExtractedColor[]>([])
+    const [ recipeSuggestions, setRecipeSuggestions ] = useState<Array<RecipeSuggestion | null>>([])
     const [ selectedExtractedColorIndex, setSelectedExtractedColorIndex ] = useState<number | null>(null)
     const [ extractedColorCount, setExtractedColorCount ] = useState<number | "auto">("auto")
     const [ preferDistinctColors, setPreferDistinctColors ] = useState<boolean>(true)
@@ -81,17 +82,79 @@ const Mixer: React.FC = () => {
         return basePaletteIndices.map((index) => palette[ index ])
     }, [ basePaletteIndices, palette ])
 
-    const recipeSuggestions = useMemo(() => {
-        if (!extractedColors.length) {
-            return []
-        }
-
+    const recipeSuggester = useMemo(() => {
         if (!basePalette.length) {
-            return extractedColors.map(() => null)
+            return null
+        }
+        return createRecipeSuggester(basePalette)
+    }, [ basePalette ])
+
+    useEffect(() => {
+        if (!extractedColors.length) {
+            setRecipeSuggestions([])
+            return
         }
 
-        return extractedColors.map((color) => suggestRecipe(basePalette, color.rgbString))
-    }, [ basePalette, extractedColors ])
+        if (!recipeSuggester) {
+            setRecipeSuggestions(extractedColors.map(() => null))
+            return
+        }
+
+        let cancelled = false
+        let handle: number | null = null
+        const nextSuggestions = new Array<RecipeSuggestion | null>(extractedColors.length).fill(null)
+        setRecipeSuggestions(nextSuggestions)
+
+        let index = 0
+        const supportsIdle = typeof window !== 'undefined' && 'requestIdleCallback' in window
+
+        const processChunk = (deadline?: IdleDeadline) => {
+            if (cancelled) {
+                return
+            }
+
+            let processed = 0
+            while (index < extractedColors.length) {
+                if (supportsIdle && deadline && processed > 0 && deadline.timeRemaining() < 4) {
+                    break
+                }
+                if (!supportsIdle && processed >= 1) {
+                    break
+                }
+
+                nextSuggestions[ index ] = recipeSuggester(extractedColors[ index ].rgbString)
+                index += 1
+                processed += 1
+            }
+
+            setRecipeSuggestions(nextSuggestions.slice())
+
+            if (index < extractedColors.length && !cancelled) {
+                if (supportsIdle) {
+                    handle = window.requestIdleCallback(processChunk, { timeout: 200 })
+                } else {
+                    handle = window.setTimeout(() => processChunk(), 0)
+                }
+            }
+        }
+
+        if (supportsIdle) {
+            handle = window.requestIdleCallback(processChunk, { timeout: 200 })
+        } else {
+            handle = window.setTimeout(() => processChunk(), 0)
+        }
+
+        return () => {
+            cancelled = true
+            if (handle !== null) {
+                if (supportsIdle && 'cancelIdleCallback' in window) {
+                    window.cancelIdleCallback(handle)
+                } else {
+                    window.clearTimeout(handle)
+                }
+            }
+        }
+    }, [ extractedColors, recipeSuggester ])
 
     const refreshExtractedColors = async (
         file: File,
