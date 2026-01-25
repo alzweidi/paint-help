@@ -16,6 +16,8 @@ type RegionBounds = {
 type HighlightOptions = {
     tolerance?: number
     region?: RegionBounds
+    palette?: string[]
+    paletteIndex?: number
 }
 
 type HeatmapOptions = {
@@ -63,6 +65,20 @@ const colorDistance = (
     return Math.sqrt(dr * dr + dg * dg + db * db)
 }
 
+const colorDistanceSq = (
+    r1: number,
+    g1: number,
+    b1: number,
+    r2: number,
+    g2: number,
+    b2: number
+): number => {
+    const dr = r1 - r2
+    const dg = g1 - g2
+    const db = b1 - b2
+    return dr * dr + dg * dg + db * db
+}
+
 export const useColorHighlight = () => {
     const generateHighlightMask = useCallback(
         async (
@@ -71,6 +87,17 @@ export const useColorHighlight = () => {
             options?: HighlightOptions
         ): Promise<string | null> => {
             const tolerance = options?.tolerance ?? DEFAULT_TOLERANCE
+            const palette = options?.palette
+            const paletteIndex = options?.paletteIndex
+            const usePaletteMatching = Array.isArray(palette) &&
+                palette.length > 0 &&
+                typeof paletteIndex === "number" &&
+                paletteIndex >= 0 &&
+                paletteIndex < palette.length
+            const paletteColors = usePaletteMatching
+                ? palette.map((color) => tinycolor(color).toRgb())
+                : []
+            const toleranceSq = tolerance * tolerance
 
             try {
                 const image = await loadImage(imageUrl)
@@ -88,7 +115,7 @@ export const useColorHighlight = () => {
                 const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight)
                 const pixels = imageData.data
 
-                const target = tinycolor(targetColor).toRgb()
+                const target = usePaletteMatching ? null : tinycolor(targetColor).toRgb()
                 const region = options?.region
 
                 let regionX = 0
@@ -114,9 +141,26 @@ export const useColorHighlight = () => {
                                            y >= regionY && y < regionY + regionH
 
                         if (isInRegion) {
-                            const distance = colorDistance(r, g, b, target.r, target.g, target.b)
+                            let matches = false
 
-                            if (distance <= tolerance) {
+                            if (usePaletteMatching) {
+                                let bestIndex = 0
+                                let bestDistance = Number.POSITIVE_INFINITY
+                                for (let idx = 0; idx < paletteColors.length; idx++) {
+                                    const swatch = paletteColors[ idx ]
+                                    const distance = colorDistanceSq(r, g, b, swatch.r, swatch.g, swatch.b)
+                                    if (distance < bestDistance) {
+                                        bestDistance = distance
+                                        bestIndex = idx
+                                    }
+                                }
+                                matches = bestIndex === paletteIndex
+                            } else if (target) {
+                                const distanceSq = colorDistanceSq(r, g, b, target.r, target.g, target.b)
+                                matches = distanceSq <= toleranceSq
+                            }
+
+                            if (matches) {
                                 pixels[i] = 0
                                 pixels[i + 1] = 255
                                 pixels[i + 2] = 0

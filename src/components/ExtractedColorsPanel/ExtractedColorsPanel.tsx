@@ -87,9 +87,12 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
 
         let cancelled = false
         const targetColor = selectedColor.rgbString
+        const highlightPalette = colors.map((color) => color.rgbString)
 
         generateHighlightMask(referenceImageUrl, targetColor, {
-            region: selectedRegion ?? undefined
+            region: selectedRegion ?? undefined,
+            palette: highlightPalette,
+            paletteIndex: selectedIndex ?? undefined
         }).then((maskUrl) => {
             if (!cancelled) {
                 setHighlightMaskUrl(maskUrl)
@@ -99,7 +102,16 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
         return () => {
             cancelled = true
         }
-    }, [ referenceImageUrl, selectedColor, isHighlightActive, isHeatmapActive, generateHighlightMask, selectedRegion ])
+    }, [
+        referenceImageUrl,
+        selectedColor,
+        selectedIndex,
+        colors,
+        isHighlightActive,
+        isHeatmapActive,
+        generateHighlightMask,
+        selectedRegion
+    ])
 
     useEffect(() => {
         if (!referenceImageUrl || !heatmapTargetColor || !isHeatmapActive) {
