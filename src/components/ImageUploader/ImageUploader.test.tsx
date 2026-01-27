@@ -54,9 +54,9 @@ describe('<ImageUploader />', () => {
         expect(getByTestId('image-preview')).toHaveAttribute('src', 'blob:preview')
     })
 
-    it('ignores unsupported file types', () => {
+    it('shows an error for unsupported file types', () => {
         const handleImageSelected = jest.fn()
-        const { getByTestId, queryByTestId } = render(
+        const { getByTestId, queryByTestId, getByRole } = render(
             <ImageUploader onImageSelected={ handleImageSelected } />
         )
 
@@ -65,6 +65,7 @@ describe('<ImageUploader />', () => {
 
         expect(handleImageSelected).not.toHaveBeenCalled()
         expect(queryByTestId('image-preview')).toBeNull()
+        expect(getByRole('alert')).toHaveTextContent('Unsupported file type')
     })
 
     it('ignores empty file selections', () => {
@@ -109,6 +110,22 @@ describe('<ImageUploader />', () => {
 
         expect(handleImageSelected).toHaveBeenCalledWith(file, 'blob:preview')
         expect(getByTestId('image-preview')).toHaveAttribute('src', 'blob:preview')
+    })
+
+    it('clears the preview and calls onClear', () => {
+        const handleImageSelected = jest.fn()
+        const handleClear = jest.fn()
+        const { getByTestId, getByText, queryByTestId } = render(
+            <ImageUploader onImageSelected={ handleImageSelected } onClear={ handleClear } />
+        )
+
+        const file = new File([ 'data' ], 'photo.png', { type: 'image/png' })
+        fireEvent.change(getByTestId('image-input'), { target: { files: [ file ] } })
+        expect(getByTestId('image-preview')).toBeInTheDocument()
+
+        fireEvent.click(getByText('Clear image'))
+        expect(handleClear).toHaveBeenCalled()
+        expect(queryByTestId('image-preview')).toBeNull()
     })
 
     it('revokes the object URL on unmount', () => {

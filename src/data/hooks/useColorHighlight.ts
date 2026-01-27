@@ -1,10 +1,11 @@
-import { useCallback } from "react"
+import { useCallback, useRef } from "react"
 import tinycolor from "tinycolor2"
 
-const MAX_DIMENSION = 480
+const DEFAULT_MAX_DIMENSION = 320
 const DEFAULT_TOLERANCE = 40
 const DEFAULT_HEATMAP_MAX_DISTANCE = 180
 const HEATMAP_ALPHA = 160
+const MAX_CACHE_ENTRIES = 24
 
 type RegionBounds = {
     x: number
@@ -18,11 +19,13 @@ type HighlightOptions = {
     region?: RegionBounds
     palette?: string[]
     paletteIndex?: number
+    maxDimension?: number
 }
 
 type HeatmapOptions = {
     maxDistance?: number
     region?: RegionBounds
+    maxDimension?: number
 }
 
 const loadImage = (src: string): Promise<HTMLImageElement> => {
@@ -34,17 +37,17 @@ const loadImage = (src: string): Promise<HTMLImageElement> => {
     })
 }
 
-const getScaledDimensions = (width: number, height: number) => {
+const getScaledDimensions = (width: number, height: number, maxDimension: number) => {
     let targetWidth = width
     let targetHeight = height
 
-    if (targetWidth > targetHeight && targetWidth > MAX_DIMENSION) {
-        const scale = MAX_DIMENSION / targetWidth
-        targetWidth = MAX_DIMENSION
+    if (targetWidth > targetHeight && targetWidth > maxDimension) {
+        const scale = maxDimension / targetWidth
+        targetWidth = maxDimension
         targetHeight = Math.round(targetHeight * scale)
-    } else if (targetHeight >= targetWidth && targetHeight > MAX_DIMENSION) {
-        const scale = MAX_DIMENSION / targetHeight
-        targetHeight = MAX_DIMENSION
+    } else if (targetHeight >= targetWidth && targetHeight > maxDimension) {
+        const scale = maxDimension / targetHeight
+        targetHeight = maxDimension
         targetWidth = Math.round(targetWidth * scale)
     }
 
@@ -80,6 +83,19 @@ const colorDistanceSq = (
 }
 
 export const useColorHighlight = () => {
+    const cacheRef = useRef(new Map<string, string | null>())
+
+    const setCacheValue = (key: string, value: string | null) => {
+        const cache = cacheRef.current
+        cache.set(key, value)
+        if (cache.size > MAX_CACHE_ENTRIES) {
+            const firstKey = cache.keys().next().value
+            if (firstKey) {
+                cache.delete(firstKey)
+            }
+        }
+    }
+
     const generateHighlightMask = useCallback(
         async (
             imageUrl: string,
@@ -87,6 +103,7 @@ export const useColorHighlight = () => {
             options?: HighlightOptions
         ): Promise<string | null> => {
             const tolerance = options?.tolerance ?? DEFAULT_TOLERANCE
+            const maxDimension = options?.maxDimension ?? DEFAULT_MAX_DIMENSION
             const palette = options?.palette
             const paletteIndex = options?.paletteIndex
             const usePaletteMatching = Array.isArray(palette) &&
@@ -99,9 +116,25 @@ export const useColorHighlight = () => {
                 : []
             const toleranceSq = tolerance * tolerance
 
+            const region = options?.region
+            const cacheKey = [
+                "highlight",
+                imageUrl,
+                targetColor,
+                tolerance,
+                maxDimension,
+                region ? `${ region.x },${ region.y },${ region.width },${ region.height }` : "full",
+                usePaletteMatching ? palette?.join("|") ?? "" : "target",
+                usePaletteMatching ? paletteIndex : "none"
+            ].join("::")
+
+            if (cacheRef.current.has(cacheKey)) {
+                return cacheRef.current.get(cacheKey) ?? null
+            }
+
             try {
                 const image = await loadImage(imageUrl)
-                const { targetWidth, targetHeight } = getScaledDimensions(image.width, image.height)
+                const { targetWidth, targetHeight } = getScaledDimensions(image.width, image.height, maxDimension)
 
                 const canvas = document.createElement("canvas")
                 canvas.width = targetWidth
@@ -116,7 +149,6 @@ export const useColorHighlight = () => {
                 const pixels = imageData.data
 
                 const target = usePaletteMatching ? null : tinycolor(targetColor).toRgb()
-                const region = options?.region
 
                 let regionX = 0
                 let regionY = 0
@@ -126,8 +158,8 @@ export const useColorHighlight = () => {
                 if (region) {
                     regionX = Math.floor((region.x / 100) * targetWidth)
                     regionY = Math.floor((region.y / 100) * targetHeight)
-                    regionW = Math.floor((region.width / 100) * targetWidth)
-                    regionH = Math.floor((region.height / 100) * targetHeight)
+                    regionW = Math.max(1, Math.floor((region.width / 100) * targetWidth))
+                    regionH = Math.max(1, Math.floor((region.height / 100) * targetHeight))
                 }
 
                 for (let y = 0; y < targetHeight; y++) {
@@ -181,8 +213,11 @@ export const useColorHighlight = () => {
                 }
 
                 ctx.putImageData(imageData, 0, 0)
-                return canvas.toDataURL("image/png")
+                const result = canvas.toDataURL("image/png")
+                setCacheValue(cacheKey, result)
+                return result
             } catch {
+                setCacheValue(cacheKey, null)
                 return null
             }
         },
@@ -196,11 +231,26 @@ export const useColorHighlight = () => {
             options?: HeatmapOptions
         ): Promise<string | null> => {
             const maxDistance = Math.max(1, options?.maxDistance ?? DEFAULT_HEATMAP_MAX_DISTANCE)
+            const maxDimension = options?.maxDimension ?? DEFAULT_MAX_DIMENSION
             const distanceScale = 1 / maxDistance
+
+            const region = options?.region
+            const cacheKey = [
+                "heatmap",
+                imageUrl,
+                targetColor,
+                maxDistance,
+                maxDimension,
+                region ? `${ region.x },${ region.y },${ region.width },${ region.height }` : "full"
+            ].join("::")
+
+            if (cacheRef.current.has(cacheKey)) {
+                return cacheRef.current.get(cacheKey) ?? null
+            }
 
             try {
                 const image = await loadImage(imageUrl)
-                const { targetWidth, targetHeight } = getScaledDimensions(image.width, image.height)
+                const { targetWidth, targetHeight } = getScaledDimensions(image.width, image.height, maxDimension)
 
                 const canvas = document.createElement("canvas")
                 canvas.width = targetWidth
@@ -215,7 +265,6 @@ export const useColorHighlight = () => {
                 const pixels = imageData.data
 
                 const target = tinycolor(targetColor).toRgb()
-                const region = options?.region
 
                 let regionX = 0
                 let regionY = 0
@@ -225,8 +274,8 @@ export const useColorHighlight = () => {
                 if (region) {
                     regionX = Math.floor((region.x / 100) * targetWidth)
                     regionY = Math.floor((region.y / 100) * targetHeight)
-                    regionW = Math.floor((region.width / 100) * targetWidth)
-                    regionH = Math.floor((region.height / 100) * targetHeight)
+                    regionW = Math.max(1, Math.floor((region.width / 100) * targetWidth))
+                    regionH = Math.max(1, Math.floor((region.height / 100) * targetHeight))
                 }
 
                 for (let y = 0; y < targetHeight; y++) {
@@ -258,8 +307,11 @@ export const useColorHighlight = () => {
                 }
 
                 ctx.putImageData(imageData, 0, 0)
-                return canvas.toDataURL("image/png")
+                const result = canvas.toDataURL("image/png")
+                setCacheValue(cacheKey, result)
+                return result
             } catch {
+                setCacheValue(cacheKey, null)
                 return null
             }
         },

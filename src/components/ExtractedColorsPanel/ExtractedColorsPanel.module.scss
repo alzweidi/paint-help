@@ -5,7 +5,20 @@
 }
 
 .header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     margin-bottom: 0.75rem;
+}
+
+.analyzingBadge {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.45rem;
+    background: #111;
+    color: white;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
 
 .body {
@@ -247,6 +260,11 @@
     background: #e0e0e0;
 }
 
+.loadoutButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 .loadoutSelect {
     font-size: 0.7rem;
     padding: 0.15rem 0.3rem;
@@ -254,6 +272,75 @@
     background: #f5f5f5;
     border-radius: 3px;
     cursor: pointer;
+}
+
+.srOnly {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    border: 0;
+}
+
+.dialogBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+}
+
+.dialog {
+    background: white;
+    border: 1px solid #111;
+    padding: 1rem;
+    width: min(360px, 90vw);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-radius: 6px;
+}
+
+.dialogLabel {
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-top: 0.4rem;
+}
+
+.dialogInput {
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #666;
+    border-radius: 4px;
+    font-size: 0.85rem;
+}
+
+.dialogHint {
+    font-size: 0.75rem;
+    color: #444;
+}
+
+.dialogActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+
+    button {
+        border: 1px solid #111;
+        background: #f5f5f5;
+        padding: 0.3rem 0.6rem;
+        font-size: 0.8rem;
+        cursor: pointer;
+    }
+
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
 }
 
 .paintList {

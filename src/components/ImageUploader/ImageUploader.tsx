@@ -3,13 +3,16 @@ import styles from './ImageUploader.module.scss'
 
 type ImageUploaderProps = {
     onImageSelected: (file: File, objectUrl: string) => void
+    onClear?: () => void
 }
 
 const ACCEPTED_IMAGE_TYPES = new Set([ 'image/png', 'image/jpeg', 'image/webp' ])
+const ACCEPTED_IMAGE_LABEL = 'PNG, JPG, or WebP'
 
-const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected }) => {
+const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected, onClear }) => {
     const [ objectUrl, setObjectUrl ] = useState<string | null>(null)
     const [ isDragging, setIsDragging ] = useState(false)
+    const [ error, setError ] = useState<string | null>(null)
 
     useEffect(() => {
         return () => {
@@ -26,9 +29,11 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected }) => {
         }
 
         if (!ACCEPTED_IMAGE_TYPES.has(file.type)) {
+            setError(`Unsupported file type. Use ${ ACCEPTED_IMAGE_LABEL }.`)
             return
         }
 
+        setError(null)
         const nextObjectUrl = URL.createObjectURL(file)
         setObjectUrl(nextObjectUrl)
         onImageSelected(file, nextObjectUrl)
@@ -54,6 +59,12 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected }) => {
         handleFiles(event.dataTransfer.files)
     }
 
+    const handleClear = () => {
+        setError(null)
+        setObjectUrl(null)
+        onClear?.()
+    }
+
     return (
         <div
             className={ `${ styles.ImageUploader } ${ isDragging ? styles.dragging : '' }` }
@@ -64,7 +75,9 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected }) => {
         >
             <label className={ styles.label }>
                 <span>Reference Image</span>
-                <span className={ styles.hint }>Drag &amp; drop or click to upload</span>
+                <span className={ styles.hint }>
+                    Drag &amp; drop or click to upload ({ ACCEPTED_IMAGE_LABEL })
+                </span>
                 <input
                     className={ styles.input }
                     data-testid="image-input"
@@ -73,13 +86,27 @@ const ImageUploader: React.FC<ImageUploaderProps> = ({ onImageSelected }) => {
                     onChange={ handleFileChange }
                 />
             </label>
+            { error && (
+                <div className={ styles.helper } role="alert">
+                    { error }
+                </div>
+            ) }
             { objectUrl && (
-                <img
-                    className={ styles.preview }
-                    data-testid="image-preview"
-                    src={ objectUrl }
-                    alt="Reference preview"
-                />
+                <div className={ styles.previewRow }>
+                    <img
+                        className={ styles.preview }
+                        data-testid="image-preview"
+                        src={ objectUrl }
+                        alt="Reference preview"
+                    />
+                    <button
+                        type="button"
+                        className={ styles.clearButton }
+                        onClick={ handleClear }
+                    >
+                        Clear image
+                    </button>
+                </div>
             ) }
         </div>
     )

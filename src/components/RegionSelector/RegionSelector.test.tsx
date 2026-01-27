@@ -108,4 +108,28 @@ describe('<RegionSelector />', () => {
 
         expect(onRegionSelected).not.toHaveBeenCalled()
     })
+
+    it('applies a keyboard-entered region', () => {
+        const onRegionSelected = jest.fn()
+        const { getByText, getByLabelText } = render(
+            <RegionSelector
+                imageUrl="blob:reference"
+                onRegionSelected={ onRegionSelected }
+                selectedRegion={ null }
+            />
+        )
+
+        fireEvent.change(getByLabelText('X%'), { target: { value: '5' } })
+        fireEvent.change(getByLabelText('Y%'), { target: { value: '10' } })
+        fireEvent.change(getByLabelText('Width%'), { target: { value: '40' } })
+        fireEvent.change(getByLabelText('Height%'), { target: { value: '50' } })
+        fireEvent.click(getByText('Apply region'))
+
+        expect(onRegionSelected).toHaveBeenCalledWith({
+            x: 5,
+            y: 10,
+            width: 40,
+            height: 50
+        })
+    })
 })

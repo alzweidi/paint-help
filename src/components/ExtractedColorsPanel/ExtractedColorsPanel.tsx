@@ -17,6 +17,8 @@ type ExtractedColorsPanelProps = {
     referenceImageUrl: string | null
     palette: ColorPart[]
     suggestions: Array<RecipeSuggestion | null>
+    isExtracting?: boolean
+    isSuggesting?: boolean
     selectedRegion: Region | null
     onRegionChange: (region: Region | null) => void
     isRegionMode: boolean
@@ -25,6 +27,7 @@ type ExtractedColorsPanelProps = {
     onSaveLoadout?: (name: string) => void
     onLoadLoadout?: (name: string) => void
     onDeleteLoadout?: (name: string) => void
+    onRenameLoadout?: (fromName: string, toName: string) => void
 }
 
 const LOW_MATCH_THRESHOLD = 60
@@ -45,6 +48,8 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
     referenceImageUrl,
     palette,
     suggestions,
+    isExtracting = false,
+    isSuggesting = false,
     selectedRegion,
     onRegionChange,
     isRegionMode,
@@ -52,19 +57,36 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
     savedLoadouts = [],
     onSaveLoadout,
     onLoadLoadout,
-    onDeleteLoadout
+    onDeleteLoadout,
+    onRenameLoadout
 }) => {
     const basePaints = palette.filter((paint) => !paint.recipe)
     const [ highlightMaskUrl, setHighlightMaskUrl ] = useState<string | null>(null)
     const [ isHighlightActive, setIsHighlightActive ] = useState(false)
     const [ heatmapUrl, setHeatmapUrl ] = useState<string | null>(null)
     const [ isHeatmapActive, setIsHeatmapActive ] = useState(false)
+    const [ activeDialog, setActiveDialog ] = useState<'save' | 'rename' | 'delete' | null>(null)
+    const [ saveName, setSaveName ] = useState('')
+    const [ renameFrom, setRenameFrom ] = useState('')
+    const [ renameTo, setRenameTo ] = useState('')
+    const [ deleteName, setDeleteName ] = useState('')
     const { generateHighlightMask, generateDifferenceHeatmap } = useColorHighlight()
 
     const selectedColor = selectedIndex === null ? null : colors[ selectedIndex ] ?? null
     const selectedSuggestion = selectedIndex === null ? null : suggestions[ selectedIndex ] ?? null
     const heatmapTargetColor = selectedSuggestion?.resultRgb ?? selectedColor?.rgbString ?? null
     const matchPct = selectedSuggestion ? Math.min(100, Math.max(0, selectedSuggestion.matchPct)) : 0
+    const loadoutNames = savedLoadouts.map((loadout) => loadout.name)
+    const hasLoadouts = loadoutNames.length > 0
+    const saveNameTrimmed = saveName.trim()
+    const renameToTrimmed = renameTo.trim()
+    const saveExists = saveNameTrimmed.length > 0 && loadoutNames.includes(saveNameTrimmed)
+    const renameExists = renameToTrimmed.length > 0 && renameFrom && loadoutNames.includes(renameToTrimmed) && renameToTrimmed !== renameFrom
+    const emptyColorsMessage = isExtracting
+        ? 'Analyzing colors...'
+        : referenceImageUrl
+            ? 'No colors extracted yet.'
+            : 'Upload an image to extract colors.'
 
     useEffect(() => {
         if (isRegionMode && colors.length === 0) {
@@ -73,6 +95,23 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
             setHeatmapUrl(null)
         }
     }, [ isRegionMode, colors.length ])
+
+    useEffect(() => {
+        if (!activeDialog) {
+            return
+        }
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setActiveDialog(null)
+            }
+        }
+
+        window.addEventListener('keydown', handleEscape)
+        return () => {
+            window.removeEventListener('keydown', handleEscape)
+        }
+    }, [ activeDialog ])
 
     useEffect(() => {
         if (!referenceImageUrl || !selectedColor) {
@@ -153,14 +192,42 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
         setIsHighlightActive(false)
     }
 
+    const openSaveDialog = () => {
+        setSaveName('')
+        setActiveDialog('save')
+    }
+
+    const openRenameDialog = () => {
+        const firstName = loadoutNames[ 0 ] ?? ''
+        setRenameFrom(firstName)
+        setRenameTo('')
+        setActiveDialog('rename')
+    }
+
+    const openDeleteDialog = () => {
+        const firstName = loadoutNames[ 0 ] ?? ''
+        setDeleteName(firstName)
+        setActiveDialog('delete')
+    }
+
     return (
         <section className={ styles.ExtractedColorsPanel }>
             <header className={ styles.header }>
                 <h3>Reference Analysis</h3>
+                { isExtracting && (
+                    <span className={ styles.analyzingBadge }>Analyzing...</span>
+                ) }
             </header>
 
             <div className={ styles.body }>
                 <div className={ styles.referenceColumn }>
+                    <div className={ styles.srOnly } aria-live="polite">
+                        { isExtracting
+                            ? 'Analyzing reference image colors.'
+                            : isSuggesting
+                                ? 'Analyzing paint mixes.'
+                                : '' }
+                    </div>
                     <div className={ styles.referenceImage }>
                         { referenceImageUrl ? (
                             <>
@@ -269,7 +336,9 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                         </div>
                                     </div>
                                 ) : (
-                                    <div className={ styles.placeholder }>No suggestion yet.</div>
+                                    <div className={ styles.placeholder }>
+                                        { isSuggesting ? 'Analyzing mixes...' : 'No suggestion yet.' }
+                                    </div>
                                 ) }
 
                                 <div className={ styles.overlayControls }>
@@ -301,12 +370,7 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                     <button
                                         type="button"
                                         className={ styles.loadoutButton }
-                                        onClick={ () => {
-                                            const name = prompt('Enter loadout name:')
-                                            if (name && name.trim()) {
-                                                onSaveLoadout(name.trim())
-                                            }
-                                        } }
+                                        onClick={ openSaveDialog }
                                         title="Save current paints as a named loadout"
                                     >
                                         Save
@@ -331,24 +395,25 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                         )) }
                                     </select>
                                 ) }
-                                { onDeleteLoadout && savedLoadouts.length > 0 && (
-                                    <select
-                                        className={ styles.loadoutSelect }
-                                        defaultValue=""
-                                        onChange={ (e) => {
-                                            if (e.target.value && confirm(`Delete loadout "${e.target.value}"?`)) {
-                                                onDeleteLoadout(e.target.value)
-                                            }
-                                            e.target.value = ''
-                                        } }
+                                { onRenameLoadout && (
+                                    <button
+                                        type="button"
+                                        className={ styles.loadoutButton }
+                                        onClick={ openRenameDialog }
+                                        disabled={ !hasLoadouts }
                                     >
-                                        <option value="" disabled>Delete...</option>
-                                        { savedLoadouts.map((loadout) => (
-                                            <option key={ loadout.name } value={ loadout.name }>
-                                                { loadout.name }
-                                            </option>
-                                        )) }
-                                    </select>
+                                        Rename
+                                    </button>
+                                ) }
+                                { onDeleteLoadout && (
+                                    <button
+                                        type="button"
+                                        className={ styles.loadoutButton }
+                                        onClick={ openDeleteDialog }
+                                        disabled={ !hasLoadouts }
+                                    >
+                                        Delete
+                                    </button>
                                 ) }
                             </div>
                         </div>
@@ -449,7 +514,9 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                                                         </div>
                                                     </div>
                                                 ) : (
-                                                    <div className={ styles.placeholder }>No suggestion yet.</div>
+                                                    <div className={ styles.placeholder }>
+                                                        { isSuggesting ? 'Analyzing mixes...' : 'No suggestion yet.' }
+                                                    </div>
                                                 ) }
                                             </div>
                                         </div>
@@ -458,10 +525,170 @@ const ExtractedColorsPanel: React.FC<ExtractedColorsPanelProps> = ({
                             </div>
                         </>
                     ) : (
-                        <div className={ styles.placeholder }>Upload an image to extract colors.</div>
+                        <div className={ styles.placeholder }>{ emptyColorsMessage }</div>
                     ) }
                 </div>
             </div>
+
+            { activeDialog === 'save' && (
+                <div className={ styles.dialogBackdrop } role="presentation">
+                    <div
+                        className={ styles.dialog }
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="save-loadout-title"
+                    >
+                        <h4 id="save-loadout-title">Save loadout</h4>
+                        <form
+                            onSubmit={ (event) => {
+                                event.preventDefault()
+                                if (onSaveLoadout && saveNameTrimmed) {
+                                    onSaveLoadout(saveNameTrimmed)
+                                    setActiveDialog(null)
+                                }
+                            } }
+                        >
+                            <label className={ styles.dialogLabel } htmlFor="save-loadout-name">
+                                Loadout name
+                            </label>
+                            <input
+                                id="save-loadout-name"
+                                className={ styles.dialogInput }
+                                type="text"
+                                value={ saveName }
+                                onChange={ (event) => setSaveName(event.target.value) }
+                                autoFocus
+                            />
+                            { saveExists && (
+                                <div className={ styles.dialogHint }>
+                                    A loadout with this name already exists. Saving will overwrite it.
+                                </div>
+                            ) }
+                            <div className={ styles.dialogActions }>
+                                <button type="button" onClick={ () => setActiveDialog(null) }>
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={ !saveNameTrimmed }>
+                                    { saveExists ? 'Overwrite' : 'Save' }
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            ) }
+
+            { activeDialog === 'rename' && (
+                <div className={ styles.dialogBackdrop } role="presentation">
+                    <div
+                        className={ styles.dialog }
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="rename-loadout-title"
+                    >
+                        <h4 id="rename-loadout-title">Rename loadout</h4>
+                        <form
+                            onSubmit={ (event) => {
+                                event.preventDefault()
+                                if (onRenameLoadout && renameFrom && renameToTrimmed) {
+                                    onRenameLoadout(renameFrom, renameToTrimmed)
+                                    setActiveDialog(null)
+                                }
+                            } }
+                        >
+                            <label className={ styles.dialogLabel } htmlFor="rename-loadout-select">
+                                Choose loadout
+                            </label>
+                            <select
+                                id="rename-loadout-select"
+                                className={ styles.dialogInput }
+                                value={ renameFrom }
+                                onChange={ (event) => setRenameFrom(event.target.value) }
+                            >
+                                { loadoutNames.map((name) => (
+                                    <option key={ name } value={ name }>
+                                        { name }
+                                    </option>
+                                )) }
+                            </select>
+                            <label className={ styles.dialogLabel } htmlFor="rename-loadout-name">
+                                New name
+                            </label>
+                            <input
+                                id="rename-loadout-name"
+                                className={ styles.dialogInput }
+                                type="text"
+                                value={ renameTo }
+                                onChange={ (event) => setRenameTo(event.target.value) }
+                            />
+                            { renameExists && (
+                                <div className={ styles.dialogHint }>
+                                    Another loadout uses this name. Renaming will overwrite it.
+                                </div>
+                            ) }
+                            <div className={ styles.dialogActions }>
+                                <button type="button" onClick={ () => setActiveDialog(null) }>
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={ !renameFrom || !renameToTrimmed || renameToTrimmed === renameFrom }
+                                >
+                                    { renameExists ? 'Overwrite' : 'Rename' }
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            ) }
+
+            { activeDialog === 'delete' && (
+                <div className={ styles.dialogBackdrop } role="presentation">
+                    <div
+                        className={ styles.dialog }
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="delete-loadout-title"
+                    >
+                        <h4 id="delete-loadout-title">Delete loadout</h4>
+                        <form
+                            onSubmit={ (event) => {
+                                event.preventDefault()
+                                if (onDeleteLoadout && deleteName) {
+                                    onDeleteLoadout(deleteName)
+                                    setActiveDialog(null)
+                                }
+                            } }
+                        >
+                            <label className={ styles.dialogLabel } htmlFor="delete-loadout-select">
+                                Choose loadout
+                            </label>
+                            <select
+                                id="delete-loadout-select"
+                                className={ styles.dialogInput }
+                                value={ deleteName }
+                                onChange={ (event) => setDeleteName(event.target.value) }
+                            >
+                                { loadoutNames.map((name) => (
+                                    <option key={ name } value={ name }>
+                                        { name }
+                                    </option>
+                                )) }
+                            </select>
+                            <div className={ styles.dialogHint }>
+                                This action cannot be undone.
+                            </div>
+                            <div className={ styles.dialogActions }>
+                                <button type="button" onClick={ () => setActiveDialog(null) }>
+                                    Cancel
+                                </button>
+                                <button type="submit" disabled={ !deleteName }>
+                                    Delete
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            ) }
         </section>
     )
 }

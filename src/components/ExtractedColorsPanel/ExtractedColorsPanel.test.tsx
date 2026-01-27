@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, fireEvent, waitFor } from '@testing-library/react'
+import { render, fireEvent, waitFor, within } from '@testing-library/react'
 import ExtractedColorsPanel from './ExtractedColorsPanel'
 
 jest.mock('../../data/hooks/useColorHighlight', () => ({
@@ -22,7 +22,8 @@ const regionProps = {
     savedLoadouts: [],
     onSaveLoadout: jest.fn(),
     onLoadLoadout: jest.fn(),
-    onDeleteLoadout: jest.fn()
+    onDeleteLoadout: jest.fn(),
+    onRenameLoadout: jest.fn()
 }
 
 describe('<ExtractedColorsPanel />', () => {
@@ -217,18 +218,16 @@ describe('<ExtractedColorsPanel />', () => {
         expect(getByText('Extracting colors from selected region')).toBeInTheDocument()
     })
 
-    it('supports loadout save, load, delete, and paint removal', () => {
+    it('supports loadout save, load, rename, delete, and paint removal', () => {
         const onSelect = jest.fn()
         const onRemovePaint = jest.fn()
         const onSaveLoadout = jest.fn()
         const onLoadLoadout = jest.fn()
         const onDeleteLoadout = jest.fn()
+        const onRenameLoadout = jest.fn()
         const savedLoadouts = [ { name: 'Studio', palette } ]
 
-        const promptSpy = jest.spyOn(window, 'prompt').mockReturnValue('Session')
-        const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true)
-
-        const { getByText, getAllByTestId, getAllByRole } = render(
+        const { getByText, getAllByTestId, getAllByRole, getByRole } = render(
             <ExtractedColorsPanel
                 colors={ [ { rgbString: 'rgb(1, 2, 3)', coveragePct: 88.8 } ] }
                 selectedIndex={ 0 }
@@ -243,25 +242,34 @@ describe('<ExtractedColorsPanel />', () => {
                 onSaveLoadout={ onSaveLoadout }
                 onLoadLoadout={ onLoadLoadout }
                 onDeleteLoadout={ onDeleteLoadout }
+                onRenameLoadout={ onRenameLoadout }
                 savedLoadouts={ savedLoadouts }
             />
         )
 
-        fireEvent.click(getByText('Save'))
+        fireEvent.click(getByRole('button', { name: 'Save' }))
+        const saveDialog = getByRole('dialog', { name: 'Save loadout' })
+        fireEvent.change(within(saveDialog).getByLabelText('Loadout name'), { target: { value: 'Session' } })
+        fireEvent.click(within(saveDialog).getByRole('button', { name: 'Save' }))
         expect(onSaveLoadout).toHaveBeenCalledWith('Session')
 
         const selects = getAllByRole('combobox')
         fireEvent.change(selects[ 0 ], { target: { value: 'Studio' } })
         expect(onLoadLoadout).toHaveBeenCalledWith('Studio')
 
-        fireEvent.change(selects[ 1 ], { target: { value: 'Studio' } })
+        fireEvent.click(getByRole('button', { name: 'Rename' }))
+        const renameDialog = getByRole('dialog', { name: 'Rename loadout' })
+        fireEvent.change(within(renameDialog).getByLabelText('New name'), { target: { value: 'Studio 2' } })
+        fireEvent.click(within(renameDialog).getByRole('button', { name: 'Rename' }))
+        expect(onRenameLoadout).toHaveBeenCalledWith('Studio', 'Studio 2')
+
+        fireEvent.click(getByRole('button', { name: 'Delete' }))
+        const deleteDialog = getByRole('dialog', { name: 'Delete loadout' })
+        fireEvent.click(within(deleteDialog).getByRole('button', { name: 'Delete' }))
         expect(onDeleteLoadout).toHaveBeenCalledWith('Studio')
 
         fireEvent.click(getAllByTestId('base-paint')[ 0 ].querySelector('button') as HTMLElement)
         expect(onRemovePaint).toHaveBeenCalledWith(0)
-
-        promptSpy.mockRestore()
-        confirmSpy.mockRestore()
     })
 
     it('handles missing selected colors safely', () => {

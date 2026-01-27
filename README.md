@@ -20,6 +20,16 @@ Paint Mixer turns a reference image into a small set of target colors, then sugg
 5. Add or remove paints from your palette and save loadouts for different paint sets.
 6. Use the suggested mixing recipes and the visual accuracy tools to judge the match.
 
+Supported formats: PNG, JPG/JPEG, and WebP.
+
+## Artist workflow (example)
+
+1. Start with your go-to palette loadout (or save a new one for this project).
+2. Upload the reference image and let Auto pick a manageable color set.
+3. Switch between dominant vs distinct to decide whether you want big shapes or nuanced accents.
+4. Click a swatch and scan the highlight/heatmap to see where that color actually appears.
+5. Mix using the suggested recipe, then adjust your real paint by eye and save the mix if it’s a keeper.
+
 ## Features
 
 - Reference image upload with automatic color extraction.
@@ -43,6 +53,12 @@ Paint Mixer turns a reference image into a small set of target colors, then sugg
 - Each extracted color is matched against your palette using a paint mixing model (Mixbox).
 - Match quality is measured with delta E in Lab space.
 - Suggestions are presented per color with coverage and recipe details.
+
+## Limitations and notes
+
+- Mixbox is a mathematical approximation of paint mixing, not a physical pigment simulation.
+- Paint names are sourced from color.pizza and are generic color names, not brand-accurate paint labels.
+- The heatmap is based on RGB distance (not perceptual Lab distance), so it’s a fast visual guide rather than a colorimetry tool.
 
 ## Local development
 

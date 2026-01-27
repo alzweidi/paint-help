@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect, useRef } from 'react'
 import styles from './Mixer.module.scss'
 
 //components
@@ -17,8 +17,6 @@ import { Region } from '../RegionSelector/RegionSelector'
 
 import { defaultPalette } from '../../utils/palettes/defaultPalette'
 import { ExtractedColor, RecipeSuggestion } from '../../types/types'
-import tinycolor from 'tinycolor2'
-
 const Mixer: React.FC = () => {
     const [ referenceImageFile, setReferenceImageFile ] = useState<File | null>(null)
     const [ referenceImageUrl, setReferenceImageUrl ] = useState<string | null>(null)
@@ -29,6 +27,13 @@ const Mixer: React.FC = () => {
     const [ preferDistinctColors, setPreferDistinctColors ] = useState<boolean>(true)
     const [ selectedRegion, setSelectedRegion ] = useState<Region | null>(null)
     const [ isRegionMode, setIsRegionMode ] = useState<boolean>(false)
+    const [ isExtracting, setIsExtracting ] = useState<boolean>(false)
+    const [ isSuggesting, setIsSuggesting ] = useState<boolean>(false)
+    const extractionRequestId = useRef(0)
+    const recipeRequestId = useRef(0)
+    const recipeWorkerRef = useRef<Worker | null>(null)
+    const workerFailedRef = useRef(false)
+    const recipeTimeoutRef = useRef<number | null>(null)
 
     type SavedLoadout = {
         name: string
@@ -67,6 +72,22 @@ const Mixer: React.FC = () => {
         setSavedLoadouts(savedLoadouts.filter(l => l.name !== name))
     }
 
+    const handleRenameLoadout = (fromName: string, toName: string) => {
+        const trimmed = toName.trim()
+        if (!trimmed) {
+            return
+        }
+
+        setSavedLoadouts((current) => {
+            const existing = current.find((loadout) => loadout.name === fromName)
+            if (!existing) {
+                return current
+            }
+            const withoutOld = current.filter((loadout) => loadout.name !== fromName && loadout.name !== trimmed)
+            return [ ...withoutOld, { name: trimmed, palette: [ ...existing.palette ] } ]
+        })
+    }
+
     const { extractColors } = useImageColorExtraction()
 
     const basePaletteIndices = useMemo(() => {
@@ -82,79 +103,158 @@ const Mixer: React.FC = () => {
         return basePaletteIndices.map((index) => palette[ index ])
     }, [ basePaletteIndices, palette ])
 
-    const recipeSuggester = useMemo(() => {
-        if (!basePalette.length) {
-            return null
-        }
-        return createRecipeSuggester(basePalette)
-    }, [ basePalette ])
-
     useEffect(() => {
-        if (!extractedColors.length) {
-            setRecipeSuggestions([])
+        if (typeof Worker === 'undefined') {
             return
         }
-
-        if (!recipeSuggester) {
-            setRecipeSuggestions(extractedColors.map(() => null))
-            return
-        }
-
         let cancelled = false
-        let handle: number | null = null
-        const nextSuggestions = new Array<RecipeSuggestion | null>(extractedColors.length).fill(null)
-        setRecipeSuggestions(nextSuggestions)
+        let worker: Worker | null = null
 
-        let index = 0
-        const supportsIdle = typeof window !== 'undefined' && 'requestIdleCallback' in window
-
-        const processChunk = (deadline?: IdleDeadline) => {
-            if (cancelled) {
-                return
-            }
-
-            let processed = 0
-            while (index < extractedColors.length) {
-                if (supportsIdle && deadline && processed > 0 && deadline.timeRemaining() < 4) {
-                    break
+        const setupWorker = async () => {
+            try {
+                const { getRecipeWorkerUrl } = await import('../../workers/recipeWorkerUrl')
+                if (cancelled) {
+                    return
                 }
-                if (!supportsIdle && processed >= 1) {
-                    break
+                worker = new Worker(getRecipeWorkerUrl(), { type: 'module' })
+                recipeWorkerRef.current = worker
+
+                worker.onmessage = (event: MessageEvent<{ id: number; suggestions: Array<RecipeSuggestion | null> }>) => {
+                    if (event.data.id !== recipeRequestId.current) {
+                        return
+                    }
+                    if (recipeTimeoutRef.current !== null) {
+                        window.clearTimeout(recipeTimeoutRef.current)
+                        recipeTimeoutRef.current = null
+                    }
+                    setRecipeSuggestions(event.data.suggestions)
+                    setIsSuggesting(false)
                 }
 
-                nextSuggestions[ index ] = recipeSuggester(extractedColors[ index ].rgbString)
-                index += 1
-                processed += 1
-            }
-
-            setRecipeSuggestions(nextSuggestions.slice())
-
-            if (index < extractedColors.length && !cancelled) {
-                if (supportsIdle) {
-                    handle = window.requestIdleCallback(processChunk, { timeout: 200 })
-                } else {
-                    handle = window.setTimeout(() => processChunk(), 0)
+                worker.onerror = () => {
+                    workerFailedRef.current = true
+                    recipeWorkerRef.current = null
+                    if (recipeTimeoutRef.current !== null) {
+                        window.clearTimeout(recipeTimeoutRef.current)
+                        recipeTimeoutRef.current = null
+                    }
+                    setIsSuggesting(false)
                 }
+            } catch {
+                workerFailedRef.current = true
+                setIsSuggesting(false)
             }
         }
 
-        if (supportsIdle) {
-            handle = window.requestIdleCallback(processChunk, { timeout: 200 })
-        } else {
-            handle = window.setTimeout(() => processChunk(), 0)
-        }
+        setupWorker()
 
         return () => {
             cancelled = true
-            if (handle !== null) {
-                if (supportsIdle && 'cancelIdleCallback' in window) {
-                    window.cancelIdleCallback(handle)
-                } else {
-                    window.clearTimeout(handle)
-                }
+            if (worker) {
+                worker.terminate()
+            }
+            recipeWorkerRef.current = null
+        }
+    }, [])
+
+    useEffect(() => {
+        const requestId = ++recipeRequestId.current
+        const clearTimeoutIfNeeded = () => {
+            if (recipeTimeoutRef.current !== null) {
+                window.clearTimeout(recipeTimeoutRef.current)
+                recipeTimeoutRef.current = null
             }
         }
-    }, [ extractedColors, recipeSuggester ])
+        const cleanup = () => {
+            clearTimeoutIfNeeded()
+        }
+
+        if (!extractedColors.length) {
+            clearTimeoutIfNeeded()
+            setRecipeSuggestions([])
+            setIsSuggesting(false)
+            return cleanup
+        }
+
+        if (!basePalette.length) {
+            clearTimeoutIfNeeded()
+            setRecipeSuggestions(extractedColors.map(() => null))
+            setIsSuggesting(false)
+            return cleanup
+        }
+
+        const targets = extractedColors.map((color) => color.rgbString)
+        const worker = recipeWorkerRef.current
+
+        const computeOnMainThread = () => {
+            const suggester = createRecipeSuggester(basePalette)
+            const nextSuggestions = new Array<RecipeSuggestion | null>(targets.length).fill(null)
+            setRecipeSuggestions(nextSuggestions)
+            setIsSuggesting(true)
+
+            let index = 0
+            const supportsIdle = typeof window !== 'undefined' && 'requestIdleCallback' in window
+            const processChunk = (deadline?: IdleDeadline) => {
+                if (recipeRequestId.current !== requestId) {
+                    return
+                }
+                let processed = 0
+                while (index < targets.length) {
+                    if (supportsIdle && deadline && processed > 0 && deadline.timeRemaining() < 4) {
+                        break
+                    }
+                    if (!supportsIdle && processed >= 1) {
+                        break
+                    }
+                    nextSuggestions[ index ] = suggester(targets[ index ])
+                    index += 1
+                    processed += 1
+                }
+                setRecipeSuggestions(nextSuggestions.slice())
+                if (index < targets.length && recipeRequestId.current === requestId) {
+                    if (supportsIdle) {
+                        window.requestIdleCallback(processChunk, { timeout: 200 })
+                    } else {
+                        window.setTimeout(() => processChunk(), 0)
+                    }
+                } else {
+                    setIsSuggesting(false)
+                }
+            }
+
+            if (supportsIdle) {
+                window.requestIdleCallback(processChunk, { timeout: 200 })
+            } else {
+                window.setTimeout(() => processChunk(), 0)
+            }
+        }
+
+        if (worker && !workerFailedRef.current) {
+            setIsSuggesting(true)
+            setRecipeSuggestions(targets.map(() => null))
+            clearTimeoutIfNeeded()
+            recipeTimeoutRef.current = window.setTimeout(() => {
+                if (recipeRequestId.current !== requestId) {
+                    return
+                }
+                workerFailedRef.current = true
+                if (recipeWorkerRef.current) {
+                    recipeWorkerRef.current.terminate()
+                    recipeWorkerRef.current = null
+                }
+                computeOnMainThread()
+            }, 4000)
+            worker.postMessage({
+                id: requestId,
+                palette: basePalette,
+                colors: targets
+            })
+            return cleanup
+        }
+
+        computeOnMainThread()
+        return cleanup
+    }, [ extractedColors, basePalette ])
 
     const refreshExtractedColors = async (
         file: File,
@@ -162,12 +262,23 @@ const Mixer: React.FC = () => {
         distinctMode: boolean,
         region?: RegionBounds | null
     ) => {
-        const colors = await extractColors(file, count, {
-            mode: distinctMode ? "distinct" : "dominant",
-            region: region ?? undefined,
-        })
-        setExtractedColors(colors)
-        setSelectedExtractedColorIndex(colors.length ? 0 : null)
+        const requestId = ++extractionRequestId.current
+        setIsExtracting(true)
+        try {
+            const colors = await extractColors(file, count, {
+                mode: distinctMode ? "distinct" : "dominant",
+                region: region ?? undefined,
+            })
+            if (requestId !== extractionRequestId.current) {
+                return
+            }
+            setExtractedColors(colors)
+            setSelectedExtractedColorIndex(colors.length ? 0 : null)
+        } finally {
+            if (requestId === extractionRequestId.current) {
+                setIsExtracting(false)
+            }
+        }
     }
 
     const handleImageSelected = async (file: File, objectUrl: string) => {
@@ -176,6 +287,20 @@ const Mixer: React.FC = () => {
         setSelectedRegion(null)
         setIsRegionMode(false)
         await refreshExtractedColors(file, extractedColorCount, preferDistinctColors)
+    }
+
+    const handleClearImage = () => {
+        extractionRequestId.current += 1
+        recipeRequestId.current += 1
+        setReferenceImageFile(null)
+        setReferenceImageUrl(null)
+        setExtractedColors([])
+        setRecipeSuggestions([])
+        setSelectedExtractedColorIndex(null)
+        setSelectedRegion(null)
+        setIsRegionMode(false)
+        setIsExtracting(false)
+        setIsSuggesting(false)
     }
 
     const handleExtractedColorSelect = (index: number) => {
@@ -196,14 +321,32 @@ const Mixer: React.FC = () => {
         }
     }
 
+    const handleDistinctToggle = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const nextDistinct = event.target.checked
+        setPreferDistinctColors(nextDistinct)
+
+        if (referenceImageFile) {
+            if (isRegionMode && selectedRegion) {
+                await refreshExtractedColors(referenceImageFile, extractedColorCount, nextDistinct, selectedRegion)
+            } else if (!isRegionMode) {
+                await refreshExtractedColors(referenceImageFile, extractedColorCount, nextDistinct)
+            }
+        }
+    }
+
     const handleRegionChange = async (region: Region | null) => {
         setSelectedRegion(region)
         
         if (region && referenceImageFile) {
             await refreshExtractedColors(referenceImageFile, extractedColorCount, preferDistinctColors, region)
         } else if (isRegionMode) {
+            extractionRequestId.current += 1
+            recipeRequestId.current += 1
             setExtractedColors([])
+            setRecipeSuggestions([])
             setSelectedExtractedColorIndex(null)
+            setIsExtracting(false)
+            setIsSuggesting(false)
         }
     }
 
@@ -213,8 +356,13 @@ const Mixer: React.FC = () => {
         setSelectedRegion(null)
         
         if (enteringRegionMode) {
+            extractionRequestId.current += 1
+            recipeRequestId.current += 1
             setExtractedColors([])
+            setRecipeSuggestions([])
             setSelectedExtractedColorIndex(null)
+            setIsExtracting(false)
+            setIsSuggesting(false)
         } else if (referenceImageFile) {
             await refreshExtractedColors(referenceImageFile, extractedColorCount, preferDistinctColors)
         }
@@ -223,7 +371,7 @@ const Mixer: React.FC = () => {
     return (
         <main className={ styles.Mixer }>
             <div className={ styles.referenceControls }>
-                <ImageUploader onImageSelected={ handleImageSelected } />
+                <ImageUploader onImageSelected={ handleImageSelected } onClear={ handleClearImage } />
                 <label className={ styles.colorCount }>
                     <span>Color count</span>
                     <select
@@ -247,7 +395,7 @@ const Mixer: React.FC = () => {
                     <input
                         type="checkbox"
                         checked={ preferDistinctColors }
-                        onChange={ (event) => setPreferDistinctColors(event.target.checked) }
+                        onChange={ handleDistinctToggle }
                         data-testid="distinct-toggle"
                     />
                 </label>
@@ -269,6 +417,8 @@ const Mixer: React.FC = () => {
                 referenceImageUrl={ referenceImageUrl }
                 palette={ basePalette }
                 suggestions={ recipeSuggestions }
+                isExtracting={ isExtracting }
+                isSuggesting={ isSuggesting }
                 selectedRegion={ selectedRegion }
                 onRegionChange={ handleRegionChange }
                 isRegionMode={ isRegionMode }
@@ -277,6 +427,7 @@ const Mixer: React.FC = () => {
                 onSaveLoadout={ handleSaveLoadout }
                 onLoadLoadout={ handleLoadLoadout }
                 onDeleteLoadout={ handleDeleteLoadout }
+                onRenameLoadout={ handleRenameLoadout }
             />
 
             <PaintNameSearch
